@@ -1,0 +1,98 @@
+{
+  "export_info": {
+    "total_categories": 12,
+    "total_files": 12,
+    "total_size_bytes": 2023614,
+    "total_nodes": 223,
+    "export_date": "2025-11-16T13:16:19.542422",
+    "blender_version": "4.5.4 LTS"
+  },
+  "files": [
+    {
+      "category": "Other",
+      "filename": "geometry_nodes_categories/other_nodes.json",
+      "size": 880648,
+      "node_count": 97
+    },
+    {
+      "category": "Attribute",
+      "filename": "geometry_nodes_categories/attribute_nodes.json",
+      "size": 59607,
+      "node_count": 6
+    },
+    {
+      "category": "Input",
+      "filename": "geometry_nodes_categories/input_nodes.json",
+      "size": 309027,
+      "node_count": 37
+    },
+    {
+      "category": "Output",
+      "filename": "geometry_nodes_categories/output_nodes.json",
+      "size": 39979,
+      "node_count": 4
+    },
+    {
+      "category": "Curve",
+      "filename": "geometry_nodes_categories/curve_nodes.json",
+      "size": 326890,
+      "node_count": 35
+    },
+    {
+      "category": "Mesh",
+      "filename": "geometry_nodes_categories/mesh_nodes.json",
+      "size": 203296,
+      "node_count": 22
+    },
+    {
+      "category": "Volume",
+      "filename": "geometry_nodes_categories/volume_nodes.json",
+      "size": 29396,
+      "node_count": 3
+    },
+    {
+      "category": "Instances",
+      "filename": "geometry_nodes_categories/instances_nodes.json",
+      "size": 90674,
+      "node_count": 10
+    },
+    {
+      "category": "Transform",
+      "filename": "geometry_nodes_categories/transform_nodes.json",
+      "size": 29363,
+      "node_count": 3
+    },
+    {
+      "category": "Texture",
+      "filename": "geometry_nodes_categories/texture_nodes.json",
+      "size": 10068,
+      "node_count": 1
+    },
+    {
+      "category": "Material",
+      "filename": "geometry_nodes_categories/material_nodes.json",
+      "size": 34936,
+      "node_count": 4
+    },
+    {
+      "category": "Color",
+      "filename": "geometry_nodes_categories/color_nodes.json",
+      "size": 9730,
+      "node_count": 1
+    }
+  ],
+  "category_summary": {
+    "Other": 97,
+    "Attribute": 6,
+    "Input": 37,
+    "Output": 4,
+    "Curve": 35,
+    "Mesh": 22,
+    "Volume": 3,
+    "Instances": 10,
+    "Transform": 3,
+    "Texture": 1,
+    "Material": 4,
+    "Color": 1
+  }
+}

@@ -1,0 +1,43 @@
+"""Attribute operations — store named attribute, remove named attribute."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+
+from ..ir.nodes import IRGeometryOp, IRNode
+
+Op = Callable[[IRNode], IRNode]
+
+
+def store_named_attribute(
+    name: str = "",
+    value: float = 0.0,
+    data_type: str = "FLOAT",
+    domain: str = "POINT",
+) -> Op:
+    """Store a value into a named attribute on geometry elements."""
+    def _apply(node: IRNode) -> IRGeometryOp:
+        return IRGeometryOp(
+            op_type="GeometryNodeStoreNamedAttribute",
+            child=node,
+            properties={
+                "name": name,
+                "value": value,
+                "data_type": data_type,
+                "domain": domain,
+            },
+            label=f"{node.label} store_attr" if node.label else "store_named_attribute",
+        )
+    return _apply
+
+
+def remove_named_attribute(name: str = "") -> Op:
+    """Remove a named attribute from geometry."""
+    def _apply(node: IRNode) -> IRGeometryOp:
+        return IRGeometryOp(
+            op_type="GeometryNodeRemoveAttribute",
+            child=node,
+            properties={"name": name},
+            label=f"{node.label} rm_attr" if node.label else "remove_named_attribute",
+        )
+    return _apply

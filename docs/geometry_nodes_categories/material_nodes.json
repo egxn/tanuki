@@ -1,0 +1,1351 @@
+{
+  "category_info": {
+    "name": "Material",
+    "total_nodes": 4,
+    "export_date": "2025-11-16T13:16:19.535711",
+    "blender_version": "4.5.4 LTS"
+  },
+  "statistics": {
+    "total_properties": 88,
+    "total_functions": 88,
+    "total_inputs": 10,
+    "total_outputs": 4,
+    "average_properties": 22.0,
+    "average_functions": 22.0
+  },
+  "nodes": [
+    {
+      "name": "Material Selection",
+      "type": "GeometryNodeMaterialSelection",
+      "description": "Provide a selection of faces that use the specified material",
+      "category": "Material",
+      "properties_count": 22,
+      "functions_count": 22,
+      "inputs": [
+        {
+          "name": "Material",
+          "identifier": "Material",
+          "type": "MATERIAL",
+          "description": "Material socket",
+          "socket_type": "INPUT",
+          "default_value": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Selection",
+          "identifier": "Selection",
+          "type": "BOOLEAN",
+          "description": "Selection output socket",
+          "socket_type": "OUTPUT"
+        }
+      ],
+      "properties": [
+        {
+          "name": "Type",
+          "identifier": "type",
+          "type": "STRING",
+          "description": "Legacy unique node type identifier, redundant with bl_idname property",
+          "default": "",
+          "is_readonly": true
+        },
+        {
+          "name": "Location",
+          "identifier": "location",
+          "type": "FLOAT",
+          "description": "Location of the node within its parent frame",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Absolute Location",
+          "identifier": "location_absolute",
+          "type": "FLOAT",
+          "description": "Location of the node in the entire canvas",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Width",
+          "identifier": "width",
+          "type": "FLOAT",
+          "description": "Width of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Height",
+          "identifier": "height",
+          "type": "FLOAT",
+          "description": "Height of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Dimensions",
+          "identifier": "dimensions",
+          "type": "FLOAT",
+          "description": "Absolute bounding box dimensions of the node",
+          "default": 0.0,
+          "is_readonly": true
+        },
+        {
+          "name": "Name",
+          "identifier": "name",
+          "type": "STRING",
+          "description": "Unique node identifier",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Label",
+          "identifier": "label",
+          "type": "STRING",
+          "description": "Optional custom node label",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Inputs",
+          "identifier": "inputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Outputs",
+          "identifier": "outputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Internal Links",
+          "identifier": "internal_links",
+          "type": "COLLECTION",
+          "description": "Internal input-to-output connections for muting",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Parent",
+          "identifier": "parent",
+          "type": "POINTER",
+          "description": "Parent this node is attached to",
+          "default": "N/A",
+          "is_readonly": false
+        },
+        {
+          "name": "Warning Propagation",
+          "identifier": "warning_propagation",
+          "type": "ENUM",
+          "description": "The kinds of messages that should be propagated from this node to the parent group node",
+          "default": "ALL",
+          "is_readonly": false,
+          "enum_items": [
+            "ALL",
+            "NONE",
+            "ERRORS",
+            "ERRORS_AND_WARNINGS"
+          ]
+        },
+        {
+          "name": "Custom Color",
+          "identifier": "use_custom_color",
+          "type": "BOOLEAN",
+          "description": "Use custom color for the node",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Color",
+          "identifier": "color",
+          "type": "FLOAT",
+          "description": "Custom color of the node body",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Color Tag",
+          "identifier": "color_tag",
+          "type": "ENUM",
+          "description": "Node header color tag",
+          "default": "NONE",
+          "is_readonly": true,
+          "enum_items": [
+            "NONE",
+            "ATTRIBUTE",
+            "COLOR",
+            "CONVERTER",
+            "DISTORT",
+            "FILTER",
+            "GEOMETRY",
+            "INPUT",
+            "MATTE",
+            "OUTPUT",
+            "SCRIPT",
+            "SHADER",
+            "TEXTURE",
+            "VECTOR",
+            "PATTERN",
+            "INTERFACE",
+            "GROUP"
+          ]
+        },
+        {
+          "name": "Select",
+          "identifier": "select",
+          "type": "BOOLEAN",
+          "description": "Node selection state",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Options",
+          "identifier": "show_options",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Preview",
+          "identifier": "show_preview",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Hide",
+          "identifier": "hide",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Mute",
+          "identifier": "mute",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Texture",
+          "identifier": "show_texture",
+          "type": "BOOLEAN",
+          "description": "Display node in viewport textured shading mode",
+          "default": false,
+          "is_readonly": false
+        }
+      ],
+      "methods": [
+        {
+          "name": "socket_value_update",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "insert_link",
+          "type": "method"
+        },
+        {
+          "name": "init",
+          "type": "method"
+        },
+        {
+          "name": "copy",
+          "type": "method"
+        },
+        {
+          "name": "free",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "draw_label",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_body_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "input_template",
+          "type": "method"
+        },
+        {
+          "name": "output_template",
+          "type": "method"
+        }
+      ],
+      "bl_rna_name": "Material Selection",
+      "socket_source": "real_node_analysis"
+    },
+    {
+      "name": "Replace Material",
+      "type": "GeometryNodeReplaceMaterial",
+      "description": "Swap one material with another",
+      "category": "Material",
+      "properties_count": 22,
+      "functions_count": 22,
+      "inputs": [
+        {
+          "name": "Geometry",
+          "identifier": "Geometry",
+          "type": "GEOMETRY",
+          "description": "Geometry socket",
+          "socket_type": "INPUT"
+        },
+        {
+          "name": "Old",
+          "identifier": "Old",
+          "type": "MATERIAL",
+          "description": "Old socket",
+          "socket_type": "INPUT",
+          "default_value": null
+        },
+        {
+          "name": "New",
+          "identifier": "New",
+          "type": "MATERIAL",
+          "description": "New socket",
+          "socket_type": "INPUT",
+          "default_value": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Geometry",
+          "identifier": "Geometry",
+          "type": "GEOMETRY",
+          "description": "Geometry output socket",
+          "socket_type": "OUTPUT"
+        }
+      ],
+      "properties": [
+        {
+          "name": "Type",
+          "identifier": "type",
+          "type": "STRING",
+          "description": "Legacy unique node type identifier, redundant with bl_idname property",
+          "default": "",
+          "is_readonly": true
+        },
+        {
+          "name": "Location",
+          "identifier": "location",
+          "type": "FLOAT",
+          "description": "Location of the node within its parent frame",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Absolute Location",
+          "identifier": "location_absolute",
+          "type": "FLOAT",
+          "description": "Location of the node in the entire canvas",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Width",
+          "identifier": "width",
+          "type": "FLOAT",
+          "description": "Width of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Height",
+          "identifier": "height",
+          "type": "FLOAT",
+          "description": "Height of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Dimensions",
+          "identifier": "dimensions",
+          "type": "FLOAT",
+          "description": "Absolute bounding box dimensions of the node",
+          "default": 0.0,
+          "is_readonly": true
+        },
+        {
+          "name": "Name",
+          "identifier": "name",
+          "type": "STRING",
+          "description": "Unique node identifier",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Label",
+          "identifier": "label",
+          "type": "STRING",
+          "description": "Optional custom node label",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Inputs",
+          "identifier": "inputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Outputs",
+          "identifier": "outputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Internal Links",
+          "identifier": "internal_links",
+          "type": "COLLECTION",
+          "description": "Internal input-to-output connections for muting",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Parent",
+          "identifier": "parent",
+          "type": "POINTER",
+          "description": "Parent this node is attached to",
+          "default": "N/A",
+          "is_readonly": false
+        },
+        {
+          "name": "Warning Propagation",
+          "identifier": "warning_propagation",
+          "type": "ENUM",
+          "description": "The kinds of messages that should be propagated from this node to the parent group node",
+          "default": "ALL",
+          "is_readonly": false,
+          "enum_items": [
+            "ALL",
+            "NONE",
+            "ERRORS",
+            "ERRORS_AND_WARNINGS"
+          ]
+        },
+        {
+          "name": "Custom Color",
+          "identifier": "use_custom_color",
+          "type": "BOOLEAN",
+          "description": "Use custom color for the node",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Color",
+          "identifier": "color",
+          "type": "FLOAT",
+          "description": "Custom color of the node body",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Color Tag",
+          "identifier": "color_tag",
+          "type": "ENUM",
+          "description": "Node header color tag",
+          "default": "NONE",
+          "is_readonly": true,
+          "enum_items": [
+            "NONE",
+            "ATTRIBUTE",
+            "COLOR",
+            "CONVERTER",
+            "DISTORT",
+            "FILTER",
+            "GEOMETRY",
+            "INPUT",
+            "MATTE",
+            "OUTPUT",
+            "SCRIPT",
+            "SHADER",
+            "TEXTURE",
+            "VECTOR",
+            "PATTERN",
+            "INTERFACE",
+            "GROUP"
+          ]
+        },
+        {
+          "name": "Select",
+          "identifier": "select",
+          "type": "BOOLEAN",
+          "description": "Node selection state",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Options",
+          "identifier": "show_options",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Preview",
+          "identifier": "show_preview",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Hide",
+          "identifier": "hide",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Mute",
+          "identifier": "mute",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Texture",
+          "identifier": "show_texture",
+          "type": "BOOLEAN",
+          "description": "Display node in viewport textured shading mode",
+          "default": false,
+          "is_readonly": false
+        }
+      ],
+      "methods": [
+        {
+          "name": "socket_value_update",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "insert_link",
+          "type": "method"
+        },
+        {
+          "name": "init",
+          "type": "method"
+        },
+        {
+          "name": "copy",
+          "type": "method"
+        },
+        {
+          "name": "free",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "draw_label",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_body_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "input_template",
+          "type": "method"
+        },
+        {
+          "name": "output_template",
+          "type": "method"
+        }
+      ],
+      "bl_rna_name": "Replace Material",
+      "socket_source": "real_node_analysis"
+    },
+    {
+      "name": "Set Material",
+      "type": "GeometryNodeSetMaterial",
+      "description": "Assign a material to geometry elements",
+      "category": "Material",
+      "properties_count": 22,
+      "functions_count": 22,
+      "inputs": [
+        {
+          "name": "Geometry",
+          "identifier": "Geometry",
+          "type": "GEOMETRY",
+          "description": "Geometry socket",
+          "socket_type": "INPUT"
+        },
+        {
+          "name": "Selection",
+          "identifier": "Selection",
+          "type": "BOOLEAN",
+          "description": "Selection socket",
+          "socket_type": "INPUT",
+          "default_value": true
+        },
+        {
+          "name": "Material",
+          "identifier": "Material",
+          "type": "MATERIAL",
+          "description": "Material socket",
+          "socket_type": "INPUT",
+          "default_value": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Geometry",
+          "identifier": "Geometry",
+          "type": "GEOMETRY",
+          "description": "Geometry output socket",
+          "socket_type": "OUTPUT"
+        }
+      ],
+      "properties": [
+        {
+          "name": "Type",
+          "identifier": "type",
+          "type": "STRING",
+          "description": "Legacy unique node type identifier, redundant with bl_idname property",
+          "default": "",
+          "is_readonly": true
+        },
+        {
+          "name": "Location",
+          "identifier": "location",
+          "type": "FLOAT",
+          "description": "Location of the node within its parent frame",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Absolute Location",
+          "identifier": "location_absolute",
+          "type": "FLOAT",
+          "description": "Location of the node in the entire canvas",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Width",
+          "identifier": "width",
+          "type": "FLOAT",
+          "description": "Width of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Height",
+          "identifier": "height",
+          "type": "FLOAT",
+          "description": "Height of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Dimensions",
+          "identifier": "dimensions",
+          "type": "FLOAT",
+          "description": "Absolute bounding box dimensions of the node",
+          "default": 0.0,
+          "is_readonly": true
+        },
+        {
+          "name": "Name",
+          "identifier": "name",
+          "type": "STRING",
+          "description": "Unique node identifier",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Label",
+          "identifier": "label",
+          "type": "STRING",
+          "description": "Optional custom node label",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Inputs",
+          "identifier": "inputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Outputs",
+          "identifier": "outputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Internal Links",
+          "identifier": "internal_links",
+          "type": "COLLECTION",
+          "description": "Internal input-to-output connections for muting",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Parent",
+          "identifier": "parent",
+          "type": "POINTER",
+          "description": "Parent this node is attached to",
+          "default": "N/A",
+          "is_readonly": false
+        },
+        {
+          "name": "Warning Propagation",
+          "identifier": "warning_propagation",
+          "type": "ENUM",
+          "description": "The kinds of messages that should be propagated from this node to the parent group node",
+          "default": "ALL",
+          "is_readonly": false,
+          "enum_items": [
+            "ALL",
+            "NONE",
+            "ERRORS",
+            "ERRORS_AND_WARNINGS"
+          ]
+        },
+        {
+          "name": "Custom Color",
+          "identifier": "use_custom_color",
+          "type": "BOOLEAN",
+          "description": "Use custom color for the node",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Color",
+          "identifier": "color",
+          "type": "FLOAT",
+          "description": "Custom color of the node body",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Color Tag",
+          "identifier": "color_tag",
+          "type": "ENUM",
+          "description": "Node header color tag",
+          "default": "NONE",
+          "is_readonly": true,
+          "enum_items": [
+            "NONE",
+            "ATTRIBUTE",
+            "COLOR",
+            "CONVERTER",
+            "DISTORT",
+            "FILTER",
+            "GEOMETRY",
+            "INPUT",
+            "MATTE",
+            "OUTPUT",
+            "SCRIPT",
+            "SHADER",
+            "TEXTURE",
+            "VECTOR",
+            "PATTERN",
+            "INTERFACE",
+            "GROUP"
+          ]
+        },
+        {
+          "name": "Select",
+          "identifier": "select",
+          "type": "BOOLEAN",
+          "description": "Node selection state",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Options",
+          "identifier": "show_options",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Preview",
+          "identifier": "show_preview",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Hide",
+          "identifier": "hide",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Mute",
+          "identifier": "mute",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Texture",
+          "identifier": "show_texture",
+          "type": "BOOLEAN",
+          "description": "Display node in viewport textured shading mode",
+          "default": false,
+          "is_readonly": false
+        }
+      ],
+      "methods": [
+        {
+          "name": "socket_value_update",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "insert_link",
+          "type": "method"
+        },
+        {
+          "name": "init",
+          "type": "method"
+        },
+        {
+          "name": "copy",
+          "type": "method"
+        },
+        {
+          "name": "free",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "draw_label",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_body_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "input_template",
+          "type": "method"
+        },
+        {
+          "name": "output_template",
+          "type": "method"
+        }
+      ],
+      "bl_rna_name": "Set Material",
+      "socket_source": "real_node_analysis"
+    },
+    {
+      "name": "Set Material Index",
+      "type": "GeometryNodeSetMaterialIndex",
+      "description": "Set the material index for each selected geometry element",
+      "category": "Material",
+      "properties_count": 22,
+      "functions_count": 22,
+      "inputs": [
+        {
+          "name": "Geometry",
+          "identifier": "Geometry",
+          "type": "GEOMETRY",
+          "description": "Geometry socket",
+          "socket_type": "INPUT"
+        },
+        {
+          "name": "Selection",
+          "identifier": "Selection",
+          "type": "BOOLEAN",
+          "description": "Selection socket",
+          "socket_type": "INPUT",
+          "default_value": true
+        },
+        {
+          "name": "Material Index",
+          "identifier": "Material Index",
+          "type": "INT",
+          "description": "Material Index socket",
+          "socket_type": "INPUT",
+          "default_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Geometry",
+          "identifier": "Geometry",
+          "type": "GEOMETRY",
+          "description": "Geometry output socket",
+          "socket_type": "OUTPUT"
+        }
+      ],
+      "properties": [
+        {
+          "name": "Type",
+          "identifier": "type",
+          "type": "STRING",
+          "description": "Legacy unique node type identifier, redundant with bl_idname property",
+          "default": "",
+          "is_readonly": true
+        },
+        {
+          "name": "Location",
+          "identifier": "location",
+          "type": "FLOAT",
+          "description": "Location of the node within its parent frame",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Absolute Location",
+          "identifier": "location_absolute",
+          "type": "FLOAT",
+          "description": "Location of the node in the entire canvas",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Width",
+          "identifier": "width",
+          "type": "FLOAT",
+          "description": "Width of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Height",
+          "identifier": "height",
+          "type": "FLOAT",
+          "description": "Height of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Dimensions",
+          "identifier": "dimensions",
+          "type": "FLOAT",
+          "description": "Absolute bounding box dimensions of the node",
+          "default": 0.0,
+          "is_readonly": true
+        },
+        {
+          "name": "Name",
+          "identifier": "name",
+          "type": "STRING",
+          "description": "Unique node identifier",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Label",
+          "identifier": "label",
+          "type": "STRING",
+          "description": "Optional custom node label",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Inputs",
+          "identifier": "inputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Outputs",
+          "identifier": "outputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Internal Links",
+          "identifier": "internal_links",
+          "type": "COLLECTION",
+          "description": "Internal input-to-output connections for muting",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Parent",
+          "identifier": "parent",
+          "type": "POINTER",
+          "description": "Parent this node is attached to",
+          "default": "N/A",
+          "is_readonly": false
+        },
+        {
+          "name": "Warning Propagation",
+          "identifier": "warning_propagation",
+          "type": "ENUM",
+          "description": "The kinds of messages that should be propagated from this node to the parent group node",
+          "default": "ALL",
+          "is_readonly": false,
+          "enum_items": [
+            "ALL",
+            "NONE",
+            "ERRORS",
+            "ERRORS_AND_WARNINGS"
+          ]
+        },
+        {
+          "name": "Custom Color",
+          "identifier": "use_custom_color",
+          "type": "BOOLEAN",
+          "description": "Use custom color for the node",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Color",
+          "identifier": "color",
+          "type": "FLOAT",
+          "description": "Custom color of the node body",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Color Tag",
+          "identifier": "color_tag",
+          "type": "ENUM",
+          "description": "Node header color tag",
+          "default": "NONE",
+          "is_readonly": true,
+          "enum_items": [
+            "NONE",
+            "ATTRIBUTE",
+            "COLOR",
+            "CONVERTER",
+            "DISTORT",
+            "FILTER",
+            "GEOMETRY",
+            "INPUT",
+            "MATTE",
+            "OUTPUT",
+            "SCRIPT",
+            "SHADER",
+            "TEXTURE",
+            "VECTOR",
+            "PATTERN",
+            "INTERFACE",
+            "GROUP"
+          ]
+        },
+        {
+          "name": "Select",
+          "identifier": "select",
+          "type": "BOOLEAN",
+          "description": "Node selection state",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Options",
+          "identifier": "show_options",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Preview",
+          "identifier": "show_preview",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Hide",
+          "identifier": "hide",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Mute",
+          "identifier": "mute",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Texture",
+          "identifier": "show_texture",
+          "type": "BOOLEAN",
+          "description": "Display node in viewport textured shading mode",
+          "default": false,
+          "is_readonly": false
+        }
+      ],
+      "methods": [
+        {
+          "name": "socket_value_update",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "insert_link",
+          "type": "method"
+        },
+        {
+          "name": "init",
+          "type": "method"
+        },
+        {
+          "name": "copy",
+          "type": "method"
+        },
+        {
+          "name": "free",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "draw_label",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_body_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "input_template",
+          "type": "method"
+        },
+        {
+          "name": "output_template",
+          "type": "method"
+        }
+      ],
+      "bl_rna_name": "Set Material Index",
+      "socket_source": "real_node_analysis"
+    }
+  ]
+}

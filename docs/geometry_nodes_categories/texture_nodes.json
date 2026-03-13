@@ -1,0 +1,394 @@
+{
+  "category_info": {
+    "name": "Texture",
+    "total_nodes": 1,
+    "export_date": "2025-11-16T13:16:19.534086",
+    "blender_version": "4.5.4 LTS"
+  },
+  "statistics": {
+    "total_properties": 24,
+    "total_functions": 22,
+    "total_inputs": 3,
+    "total_outputs": 2,
+    "average_properties": 24.0,
+    "average_functions": 22.0
+  },
+  "nodes": [
+    {
+      "name": "Image Texture",
+      "type": "GeometryNodeImageTexture",
+      "description": "Sample values from an image texture",
+      "category": "Texture",
+      "properties_count": 24,
+      "functions_count": 22,
+      "inputs": [
+        {
+          "name": "Image",
+          "identifier": "Image",
+          "type": "IMAGE",
+          "description": "Image socket",
+          "socket_type": "INPUT",
+          "default_value": null
+        },
+        {
+          "name": "Vector",
+          "identifier": "Vector",
+          "type": "VECTOR",
+          "description": "Vector socket",
+          "socket_type": "INPUT",
+          "default_value": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "Frame",
+          "identifier": "Frame",
+          "type": "INT",
+          "description": "Frame socket",
+          "socket_type": "INPUT",
+          "default_value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Color",
+          "identifier": "Color",
+          "type": "RGBA",
+          "description": "Color output socket",
+          "socket_type": "OUTPUT"
+        },
+        {
+          "name": "Alpha",
+          "identifier": "Alpha",
+          "type": "VALUE",
+          "description": "Alpha output socket",
+          "socket_type": "OUTPUT"
+        }
+      ],
+      "properties": [
+        {
+          "name": "Type",
+          "identifier": "type",
+          "type": "STRING",
+          "description": "Legacy unique node type identifier, redundant with bl_idname property",
+          "default": "",
+          "is_readonly": true
+        },
+        {
+          "name": "Location",
+          "identifier": "location",
+          "type": "FLOAT",
+          "description": "Location of the node within its parent frame",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Absolute Location",
+          "identifier": "location_absolute",
+          "type": "FLOAT",
+          "description": "Location of the node in the entire canvas",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Width",
+          "identifier": "width",
+          "type": "FLOAT",
+          "description": "Width of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Height",
+          "identifier": "height",
+          "type": "FLOAT",
+          "description": "Height of the node",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Dimensions",
+          "identifier": "dimensions",
+          "type": "FLOAT",
+          "description": "Absolute bounding box dimensions of the node",
+          "default": 0.0,
+          "is_readonly": true
+        },
+        {
+          "name": "Name",
+          "identifier": "name",
+          "type": "STRING",
+          "description": "Unique node identifier",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Label",
+          "identifier": "label",
+          "type": "STRING",
+          "description": "Optional custom node label",
+          "default": "",
+          "is_readonly": false
+        },
+        {
+          "name": "Inputs",
+          "identifier": "inputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Outputs",
+          "identifier": "outputs",
+          "type": "COLLECTION",
+          "description": "",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Internal Links",
+          "identifier": "internal_links",
+          "type": "COLLECTION",
+          "description": "Internal input-to-output connections for muting",
+          "default": "N/A",
+          "is_readonly": true
+        },
+        {
+          "name": "Parent",
+          "identifier": "parent",
+          "type": "POINTER",
+          "description": "Parent this node is attached to",
+          "default": "N/A",
+          "is_readonly": false
+        },
+        {
+          "name": "Warning Propagation",
+          "identifier": "warning_propagation",
+          "type": "ENUM",
+          "description": "The kinds of messages that should be propagated from this node to the parent group node",
+          "default": "ALL",
+          "is_readonly": false,
+          "enum_items": [
+            "ALL",
+            "NONE",
+            "ERRORS",
+            "ERRORS_AND_WARNINGS"
+          ]
+        },
+        {
+          "name": "Custom Color",
+          "identifier": "use_custom_color",
+          "type": "BOOLEAN",
+          "description": "Use custom color for the node",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Color",
+          "identifier": "color",
+          "type": "FLOAT",
+          "description": "Custom color of the node body",
+          "default": 0.0,
+          "is_readonly": false
+        },
+        {
+          "name": "Color Tag",
+          "identifier": "color_tag",
+          "type": "ENUM",
+          "description": "Node header color tag",
+          "default": "NONE",
+          "is_readonly": true,
+          "enum_items": [
+            "NONE",
+            "ATTRIBUTE",
+            "COLOR",
+            "CONVERTER",
+            "DISTORT",
+            "FILTER",
+            "GEOMETRY",
+            "INPUT",
+            "MATTE",
+            "OUTPUT",
+            "SCRIPT",
+            "SHADER",
+            "TEXTURE",
+            "VECTOR",
+            "PATTERN",
+            "INTERFACE",
+            "GROUP"
+          ]
+        },
+        {
+          "name": "Select",
+          "identifier": "select",
+          "type": "BOOLEAN",
+          "description": "Node selection state",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Options",
+          "identifier": "show_options",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Preview",
+          "identifier": "show_preview",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Hide",
+          "identifier": "hide",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Mute",
+          "identifier": "mute",
+          "type": "BOOLEAN",
+          "description": "",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Show Texture",
+          "identifier": "show_texture",
+          "type": "BOOLEAN",
+          "description": "Display node in viewport textured shading mode",
+          "default": false,
+          "is_readonly": false
+        },
+        {
+          "name": "Interpolation",
+          "identifier": "interpolation",
+          "type": "ENUM",
+          "description": "Method for smoothing values between pixels",
+          "default": "Linear",
+          "is_readonly": false,
+          "enum_items": [
+            "Linear",
+            "Closest",
+            "Cubic"
+          ]
+        },
+        {
+          "name": "Extension",
+          "identifier": "extension",
+          "type": "ENUM",
+          "description": "How the image is extrapolated past its original bounds",
+          "default": "REPEAT",
+          "is_readonly": false,
+          "enum_items": [
+            "REPEAT",
+            "EXTEND",
+            "CLIP",
+            "MIRROR"
+          ]
+        }
+      ],
+      "methods": [
+        {
+          "name": "socket_value_update",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "insert_link",
+          "type": "method"
+        },
+        {
+          "name": "init",
+          "type": "method"
+        },
+        {
+          "name": "copy",
+          "type": "method"
+        },
+        {
+          "name": "free",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "draw_label",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_body_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "debug_zone_lazy_function_graph",
+          "type": "method"
+        },
+        {
+          "name": "poll",
+          "type": "method"
+        },
+        {
+          "name": "poll_instance",
+          "type": "method"
+        },
+        {
+          "name": "update",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons",
+          "type": "method"
+        },
+        {
+          "name": "draw_buttons_ext",
+          "type": "method"
+        },
+        {
+          "name": "is_registered_node_type",
+          "type": "method"
+        },
+        {
+          "name": "input_template",
+          "type": "method"
+        },
+        {
+          "name": "output_template",
+          "type": "method"
+        }
+      ],
+      "bl_rna_name": "Image Texture",
+      "socket_source": "real_node_analysis"
+    }
+  ]
+}

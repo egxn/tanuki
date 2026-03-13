@@ -1,0 +1,1892 @@
+{
+  "metadata": {
+    "blender_version": "4.5.4 LTS",
+    "blender_version_tuple": [
+      4,
+      5,
+      4
+    ],
+    "export_date": "2025-11-16T13:16:18.949909",
+    "total_nodes": 223,
+    "include_detailed_info": false,
+    "socket_analysis": "basic"
+  },
+  "summary": {
+    "total_properties": 5101,
+    "total_functions": 4905,
+    "total_inputs": 0,
+    "total_outputs": 0,
+    "categories": {
+      "Other": {
+        "count": 97,
+        "properties_count": 2233,
+        "functions_count": 2129,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Attribute": {
+        "count": 6,
+        "properties_count": 143,
+        "functions_count": 132,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Input": {
+        "count": 37,
+        "properties_count": 824,
+        "functions_count": 818,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Output": {
+        "count": 4,
+        "properties_count": 107,
+        "functions_count": 88,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Curve": {
+        "count": 35,
+        "properties_count": 796,
+        "functions_count": 770,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Mesh": {
+        "count": 22,
+        "properties_count": 498,
+        "functions_count": 484,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Volume": {
+        "count": 3,
+        "properties_count": 68,
+        "functions_count": 66,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Instances": {
+        "count": 10,
+        "properties_count": 221,
+        "functions_count": 220,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Transform": {
+        "count": 3,
+        "properties_count": 76,
+        "functions_count": 66,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Texture": {
+        "count": 1,
+        "properties_count": 24,
+        "functions_count": 22,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Material": {
+        "count": 4,
+        "properties_count": 88,
+        "functions_count": 88,
+        "inputs_count": 0,
+        "outputs_count": 0
+      },
+      "Color": {
+        "count": 1,
+        "properties_count": 23,
+        "functions_count": 22,
+        "inputs_count": 0,
+        "outputs_count": 0
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "Geometry Node",
+      "type": "GeometryNode",
+      "description": "",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 19
+    },
+    {
+      "name": "Accumulate Field",
+      "type": "GeometryNodeAccumulateField",
+      "description": "Add the values of an evaluated field together and output the running total for each element",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Domain Size",
+      "type": "GeometryNodeAttributeDomainSize",
+      "description": "Retrieve the number of elements in a geometry for each attribute domain",
+      "category": "Attribute",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Attribute Statistic",
+      "type": "GeometryNodeAttributeStatistic",
+      "description": "Calculate statistics about a data set from a field evaluated on a geometry",
+      "category": "Attribute",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Bake",
+      "type": "GeometryNodeBake",
+      "description": "Cache the incoming data so that it can be used without recomputation",
+      "category": "Other",
+      "properties_count": 25,
+      "functions_count": 22
+    },
+    {
+      "name": "Blur Attribute",
+      "type": "GeometryNodeBlurAttribute",
+      "description": "Mix attribute values of neighboring elements",
+      "category": "Attribute",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Bounding Box",
+      "type": "GeometryNodeBoundBox",
+      "description": "Calculate the limits of a geometry's positions and generate a box mesh with those dimensions",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Camera Info",
+      "type": "GeometryNodeCameraInfo",
+      "description": "Retrieve information from a camera object",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Capture Attribute",
+      "type": "GeometryNodeCaptureAttribute",
+      "description": "Store the result of a field on a geometry and output the data as a node socket. Allows remembering or interpolating data as the geometry changes, such as positions before deformation",
+      "category": "Attribute",
+      "properties_count": 26,
+      "functions_count": 22
+    },
+    {
+      "name": "Closure Input",
+      "type": "GeometryNodeClosureInput",
+      "description": "",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 23
+    },
+    {
+      "name": "Closure Output",
+      "type": "GeometryNodeClosureOutput",
+      "description": "",
+      "category": "Output",
+      "properties_count": 26,
+      "functions_count": 22
+    },
+    {
+      "name": "Collection Info",
+      "type": "GeometryNodeCollectionInfo",
+      "description": "Retrieve geometry instances from a collection",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Combine Bundle",
+      "type": "GeometryNodeCombineBundle",
+      "description": "Combine multiple socket values into one.",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Convex Hull",
+      "type": "GeometryNodeConvexHull",
+      "description": "Create a mesh that encloses all points in the input geometry with the smallest number of points",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Corners of Edge",
+      "type": "GeometryNodeCornersOfEdge",
+      "description": "Retrieve face corners connected to edges",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Corners of Face",
+      "type": "GeometryNodeCornersOfFace",
+      "description": "Retrieve corners that make up a face",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Corners of Vertex",
+      "type": "GeometryNodeCornersOfVertex",
+      "description": "Retrieve face corners connected to vertices",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Arc",
+      "type": "GeometryNodeCurveArc",
+      "description": "Generate a poly spline arc",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Endpoint Selection",
+      "type": "GeometryNodeCurveEndpointSelection",
+      "description": "Provide a selection for an arbitrary number of endpoints in each spline",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Handle Type Selection",
+      "type": "GeometryNodeCurveHandleTypeSelection",
+      "description": "Provide a selection based on the handle types of Bézier control points",
+      "category": "Curve",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Curve Length",
+      "type": "GeometryNodeCurveLength",
+      "description": "Retrieve the length of all splines added together",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Curve of Point",
+      "type": "GeometryNodeCurveOfPoint",
+      "description": "Retrieve the curve a control point is part of",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Bézier Segment",
+      "type": "GeometryNodeCurvePrimitiveBezierSegment",
+      "description": "Generate a 2D Bézier spline from the given control points and handles",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Curve Circle",
+      "type": "GeometryNodeCurvePrimitiveCircle",
+      "description": "Generate a poly spline circle",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Curve Line",
+      "type": "GeometryNodeCurvePrimitiveLine",
+      "description": "Generate a poly spline line with two points",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Quadrilateral",
+      "type": "GeometryNodeCurvePrimitiveQuadrilateral",
+      "description": "Generate a polygon with four points",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Quadratic Bézier",
+      "type": "GeometryNodeCurveQuadraticBezier",
+      "description": "Generate a poly spline in a parabola shape with control points positions",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Handle Type",
+      "type": "GeometryNodeCurveSetHandles",
+      "description": "Set the handle type for the control points of a Bézier curve",
+      "category": "Curve",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Spiral",
+      "type": "GeometryNodeCurveSpiral",
+      "description": "Generate a poly spline in a spiral shape",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Spline Type",
+      "type": "GeometryNodeCurveSplineType",
+      "description": "Change the type of curves",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Star",
+      "type": "GeometryNodeCurveStar",
+      "description": "Generate a poly spline in a star pattern by connecting alternating points of two circles",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Curve to Mesh",
+      "type": "GeometryNodeCurveToMesh",
+      "description": "Convert curves into a mesh, optionally with a custom profile shape defined by curves",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Curve to Points",
+      "type": "GeometryNodeCurveToPoints",
+      "description": "Generate a point cloud by sampling positions along curves",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Curves to Grease Pencil",
+      "type": "GeometryNodeCurvesToGreasePencil",
+      "description": "Convert the curves in each top-level instance into Grease Pencil layer",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Geometry Custom Group",
+      "type": "GeometryNodeCustomGroup",
+      "description": "Custom Geometry Group Node for Python nodes",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 19
+    },
+    {
+      "name": "Deform Curves on Surface",
+      "type": "GeometryNodeDeformCurvesOnSurface",
+      "description": "Translate and rotate curves based on changes between the object's original and evaluated surface mesh",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Delete Geometry",
+      "type": "GeometryNodeDeleteGeometry",
+      "description": "Remove selected elements of a geometry",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Distribute Points in Grid",
+      "type": "GeometryNodeDistributePointsInGrid",
+      "description": "Generate points inside a volume grid",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Distribute Points in Volume",
+      "type": "GeometryNodeDistributePointsInVolume",
+      "description": "Generate points inside a volume",
+      "category": "Volume",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Distribute Points on Faces",
+      "type": "GeometryNodeDistributePointsOnFaces",
+      "description": "Generate points spread out on the surface of a mesh",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Dual Mesh",
+      "type": "GeometryNodeDualMesh",
+      "description": "Convert Faces into vertices and vertices into faces",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Duplicate Elements",
+      "type": "GeometryNodeDuplicateElements",
+      "description": "Generate an arbitrary number copies of each selected input element",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Edge Paths to Curves",
+      "type": "GeometryNodeEdgePathsToCurves",
+      "description": "Output curves following paths across mesh edges",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Edge Paths to Selection",
+      "type": "GeometryNodeEdgePathsToSelection",
+      "description": "Output a selection of edges by following paths across mesh edges",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Edges of Corner",
+      "type": "GeometryNodeEdgesOfCorner",
+      "description": "Retrieve the edges on both sides of a face corner",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Edges of Vertex",
+      "type": "GeometryNodeEdgesOfVertex",
+      "description": "Retrieve the edges connected to each vertex",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Edges to Face Groups",
+      "type": "GeometryNodeEdgesToFaceGroups",
+      "description": "Group faces into regions surrounded by the selected boundary edges",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Evaluate Closure",
+      "type": "GeometryNodeEvaluateClosure",
+      "description": "",
+      "category": "Other",
+      "properties_count": 26,
+      "functions_count": 22
+    },
+    {
+      "name": "Extrude Mesh",
+      "type": "GeometryNodeExtrudeMesh",
+      "description": "Generate new vertices, edges, or faces from selected elements and move them based on an offset while keeping them connected by their boundary",
+      "category": "Mesh",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Face of Corner",
+      "type": "GeometryNodeFaceOfCorner",
+      "description": "Retrieve the face each face corner is part of",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Evaluate at Index",
+      "type": "GeometryNodeFieldAtIndex",
+      "description": "Retrieve data of other elements in the context's geometry",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Field Average",
+      "type": "GeometryNodeFieldAverage",
+      "description": "Calculate the mean and median of a given field",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Field Min & Max",
+      "type": "GeometryNodeFieldMinAndMax",
+      "description": "Calculate the minimum and maximum of a given field",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Evaluate on Domain",
+      "type": "GeometryNodeFieldOnDomain",
+      "description": "Retrieve values from a field on a different domain besides the domain from the context",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Field Variance",
+      "type": "GeometryNodeFieldVariance",
+      "description": "Calculate the standard deviation and variance of a given field",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Fill Curve",
+      "type": "GeometryNodeFillCurve",
+      "description": "Generate a mesh on the XY plane with faces on the inside of input curves",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Fillet Curve",
+      "type": "GeometryNodeFilletCurve",
+      "description": "Round corners by generating circular arcs on each control point",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Flip Faces",
+      "type": "GeometryNodeFlipFaces",
+      "description": "Reverse the order of the vertices and edges of selected faces, flipping their normal direction",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "For Each Geometry Element Input",
+      "type": "GeometryNodeForeachGeometryElementInput",
+      "description": "",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 23
+    },
+    {
+      "name": "For Each Geometry Element Output",
+      "type": "GeometryNodeForeachGeometryElementOutput",
+      "description": "",
+      "category": "Output",
+      "properties_count": 30,
+      "functions_count": 22
+    },
+    {
+      "name": "Geometry to Instance",
+      "type": "GeometryNodeGeometryToInstance",
+      "description": "Convert each input geometry into an instance, which can be much faster than the Join Geometry node when the inputs are large",
+      "category": "Instances",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Get Named Grid",
+      "type": "GeometryNodeGetNamedGrid",
+      "description": "Get volume grid from a volume geometry with the specified name",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Dial Gizmo",
+      "type": "GeometryNodeGizmoDial",
+      "description": "Show a dial gizmo in the viewport for a value",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Linear Gizmo",
+      "type": "GeometryNodeGizmoLinear",
+      "description": "Show a linear gizmo in the viewport for a value",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Transform Gizmo",
+      "type": "GeometryNodeGizmoTransform",
+      "description": "Show a transform gizmo in the viewport",
+      "category": "Transform",
+      "properties_count": 31,
+      "functions_count": 22
+    },
+    {
+      "name": "Grease Pencil to Curves",
+      "type": "GeometryNodeGreasePencilToCurves",
+      "description": "Convert Grease Pencil layers into curve instances",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Grid Info",
+      "type": "GeometryNodeGridInfo",
+      "description": "Retrieve information about a volume grid",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Grid to Mesh",
+      "type": "GeometryNodeGridToMesh",
+      "description": "Generate a mesh on the \"surface\" of a volume grid",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Group",
+      "type": "GeometryNodeGroup",
+      "description": "",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Image Info",
+      "type": "GeometryNodeImageInfo",
+      "description": "Retrieve information about an image",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Image Texture",
+      "type": "GeometryNodeImageTexture",
+      "description": "Sample values from an image texture",
+      "category": "Texture",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Import CSV",
+      "type": "GeometryNodeImportCSV",
+      "description": "Import geometry from an CSV file",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Import OBJ",
+      "type": "GeometryNodeImportOBJ",
+      "description": "Import geometry from an OBJ file",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Import PLY",
+      "type": "GeometryNodeImportPLY",
+      "description": "Import a point cloud from a PLY file",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Import STL",
+      "type": "GeometryNodeImportSTL",
+      "description": "Import a mesh from an STL file",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Import Text",
+      "type": "GeometryNodeImportText",
+      "description": "Import a string from a text file",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Import VDB",
+      "type": "GeometryNodeImportVDB",
+      "description": "Import volume data from a .vdb file",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Index of Nearest",
+      "type": "GeometryNodeIndexOfNearest",
+      "description": "Find the nearest element in a group. Similar to the \"Sample Nearest\" node",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Index Switch",
+      "type": "GeometryNodeIndexSwitch",
+      "description": "Choose between an arbitrary number of values with an index",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Active Camera",
+      "type": "GeometryNodeInputActiveCamera",
+      "description": "Retrieve the scene's active camera",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Collection",
+      "type": "GeometryNodeInputCollection",
+      "description": "Output a single collection",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Curve Handle Positions",
+      "type": "GeometryNodeInputCurveHandlePositions",
+      "description": "Retrieve the position of each Bézier control point's handles",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Curve Tilt",
+      "type": "GeometryNodeInputCurveTilt",
+      "description": "Retrieve the angle at each control point used to twist the curve's normal around its tangent",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Is Edge Smooth",
+      "type": "GeometryNodeInputEdgeSmooth",
+      "description": "Retrieve whether each edge is marked for smooth or split normals",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "ID",
+      "type": "GeometryNodeInputID",
+      "description": "Retrieve a stable random identifier value from the \"id\" attribute on the point domain, or the index if the attribute does not exist",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Image",
+      "type": "GeometryNodeInputImage",
+      "description": "Input an image data-block",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Index",
+      "type": "GeometryNodeInputIndex",
+      "description": "Retrieve an integer value indicating the position of each element in the list, starting at zero",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Instance Bounds",
+      "type": "GeometryNodeInputInstanceBounds",
+      "description": "Calculate position bounds of each instance's geometry set",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Instance Rotation",
+      "type": "GeometryNodeInputInstanceRotation",
+      "description": "Retrieve the rotation of each instance in the geometry",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Instance Scale",
+      "type": "GeometryNodeInputInstanceScale",
+      "description": "Retrieve the scale of each instance in the geometry",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Material",
+      "type": "GeometryNodeInputMaterial",
+      "description": "Output a single material",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Material Index",
+      "type": "GeometryNodeInputMaterialIndex",
+      "description": "Retrieve the index of the material used for each element in the geometry's list of materials",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Edge Angle",
+      "type": "GeometryNodeInputMeshEdgeAngle",
+      "description": "The angle between the normals of connected manifold faces",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Edge Neighbors",
+      "type": "GeometryNodeInputMeshEdgeNeighbors",
+      "description": "Retrieve the number of faces that use each edge as one of their sides",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Edge Vertices",
+      "type": "GeometryNodeInputMeshEdgeVertices",
+      "description": "Retrieve topology information relating to each edge of a mesh",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Face Area",
+      "type": "GeometryNodeInputMeshFaceArea",
+      "description": "Calculate the surface area of a mesh's faces",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Is Face Planar",
+      "type": "GeometryNodeInputMeshFaceIsPlanar",
+      "description": "Retrieve whether all triangles in a face are on the same plane, i.e. whether they have the same normal",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Face Neighbors",
+      "type": "GeometryNodeInputMeshFaceNeighbors",
+      "description": "Retrieve topology information relating to each face of a mesh",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Mesh Island",
+      "type": "GeometryNodeInputMeshIsland",
+      "description": "Retrieve information about separate connected regions in a mesh",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Vertex Neighbors",
+      "type": "GeometryNodeInputMeshVertexNeighbors",
+      "description": "Retrieve topology information relating to each vertex of a mesh",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Named Attribute",
+      "type": "GeometryNodeInputNamedAttribute",
+      "description": "Retrieve the data of a specified attribute",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Named Layer Selection",
+      "type": "GeometryNodeInputNamedLayerSelection",
+      "description": "Output a selection of a Grease Pencil layer",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Normal",
+      "type": "GeometryNodeInputNormal",
+      "description": "Retrieve a unit length vector indicating the direction pointing away from the geometry at each element",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Object",
+      "type": "GeometryNodeInputObject",
+      "description": "Output a single object",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Position",
+      "type": "GeometryNodeInputPosition",
+      "description": "Retrieve a vector indicating the location of each element",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Radius",
+      "type": "GeometryNodeInputRadius",
+      "description": "Retrieve the radius at each point on curve or point cloud geometry",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Scene Time",
+      "type": "GeometryNodeInputSceneTime",
+      "description": "Retrieve the current time in the scene's animation in units of seconds or frames",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Is Face Smooth",
+      "type": "GeometryNodeInputShadeSmooth",
+      "description": "Retrieve whether each face is marked for smooth or sharp normals",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Shortest Edge Paths",
+      "type": "GeometryNodeInputShortestEdgePaths",
+      "description": "Find the shortest paths along mesh edges to selected end vertices, with customizable cost per edge",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Is Spline Cyclic",
+      "type": "GeometryNodeInputSplineCyclic",
+      "description": "Retrieve whether each spline endpoint connects to the beginning",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Spline Resolution",
+      "type": "GeometryNodeInputSplineResolution",
+      "description": "Retrieve the number of evaluated points that will be generated for every control point on curves",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Curve Tangent",
+      "type": "GeometryNodeInputTangent",
+      "description": "Retrieve the direction of curves at each control point",
+      "category": "Input",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Instance on Points",
+      "type": "GeometryNodeInstanceOnPoints",
+      "description": "Generate a reference to geometry at each of the input points, without duplicating its underlying data",
+      "category": "Instances",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Instance Transform",
+      "type": "GeometryNodeInstanceTransform",
+      "description": "Retrieve the full transformation of each instance in the geometry",
+      "category": "Instances",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Instances to Points",
+      "type": "GeometryNodeInstancesToPoints",
+      "description": "Generate points at the origins of instances.\nNote: Nested instances are not affected by this node",
+      "category": "Instances",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Interpolate Curves",
+      "type": "GeometryNodeInterpolateCurves",
+      "description": "Generate new curves on points by interpolating between existing curves",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Is Viewport",
+      "type": "GeometryNodeIsViewport",
+      "description": "Retrieve whether the nodes are being evaluated for the viewport rather than the final render",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Join Geometry",
+      "type": "GeometryNodeJoinGeometry",
+      "description": "Merge separately generated geometries into a single one",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Material Selection",
+      "type": "GeometryNodeMaterialSelection",
+      "description": "Provide a selection of faces that use the specified material",
+      "category": "Material",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Menu Switch",
+      "type": "GeometryNodeMenuSwitch",
+      "description": "Select from multiple inputs by name",
+      "category": "Other",
+      "properties_count": 27,
+      "functions_count": 22
+    },
+    {
+      "name": "Merge by Distance",
+      "type": "GeometryNodeMergeByDistance",
+      "description": "Merge vertices or points within a given distance",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Merge Layers",
+      "type": "GeometryNodeMergeLayers",
+      "description": "Join groups of Grease Pencil layers into one",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Mesh Boolean",
+      "type": "GeometryNodeMeshBoolean",
+      "description": "Cut, subtract, or join multiple mesh inputs",
+      "category": "Mesh",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Mesh Circle",
+      "type": "GeometryNodeMeshCircle",
+      "description": "Generate a circular ring of edges",
+      "category": "Mesh",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Cone",
+      "type": "GeometryNodeMeshCone",
+      "description": "Generate a cone mesh",
+      "category": "Mesh",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Cube",
+      "type": "GeometryNodeMeshCube",
+      "description": "Generate a cuboid mesh with variable side lengths and subdivisions",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Cylinder",
+      "type": "GeometryNodeMeshCylinder",
+      "description": "Generate a cylinder mesh",
+      "category": "Mesh",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Face Group Boundaries",
+      "type": "GeometryNodeMeshFaceSetBoundaries",
+      "description": "Find edges on the boundaries between groups of faces with the same ID value",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Grid",
+      "type": "GeometryNodeMeshGrid",
+      "description": "Generate a planar mesh on the XY plane",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Ico Sphere",
+      "type": "GeometryNodeMeshIcoSphere",
+      "description": "Generate a spherical mesh that consists of equally sized triangles",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Mesh Line",
+      "type": "GeometryNodeMeshLine",
+      "description": "Generate vertices in a line and connect them with edges",
+      "category": "Mesh",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Mesh to Curve",
+      "type": "GeometryNodeMeshToCurve",
+      "description": "Generate a curve from a mesh",
+      "category": "Mesh",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Mesh to Density Grid",
+      "type": "GeometryNodeMeshToDensityGrid",
+      "description": "Create a filled volume grid from a mesh",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Mesh to Points",
+      "type": "GeometryNodeMeshToPoints",
+      "description": "Generate a point cloud from a mesh's vertices",
+      "category": "Mesh",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Mesh to SDF Grid",
+      "type": "GeometryNodeMeshToSDFGrid",
+      "description": "Create a signed distance volume grid from a mesh",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Mesh to Volume",
+      "type": "GeometryNodeMeshToVolume",
+      "description": "Create a fog volume with the shape of the input mesh's surface",
+      "category": "Mesh",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "UV Sphere",
+      "type": "GeometryNodeMeshUVSphere",
+      "description": "Generate a spherical mesh with quads, except for triangles at the top and bottom",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Object Info",
+      "type": "GeometryNodeObjectInfo",
+      "description": "Retrieve information from an object",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Offset Corner in Face",
+      "type": "GeometryNodeOffsetCornerInFace",
+      "description": "Retrieve corners in the same face as another",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Offset Point in Curve",
+      "type": "GeometryNodeOffsetPointInCurve",
+      "description": "Offset a control point index within its curve",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Points",
+      "type": "GeometryNodePoints",
+      "description": "Generate a point cloud with positions and radii defined by fields",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Points of Curve",
+      "type": "GeometryNodePointsOfCurve",
+      "description": "Retrieve a point index within a curve",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Points to Curves",
+      "type": "GeometryNodePointsToCurves",
+      "description": "Split all points to curve by its group ID and reorder by weight",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Points to SDF Grid",
+      "type": "GeometryNodePointsToSDFGrid",
+      "description": "Create a signed distance volume grid from points",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Points to Vertices",
+      "type": "GeometryNodePointsToVertices",
+      "description": "Generate a mesh vertex for each point cloud point",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Points to Volume",
+      "type": "GeometryNodePointsToVolume",
+      "description": "Generate a fog volume sphere around every point",
+      "category": "Volume",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Geometry Proximity",
+      "type": "GeometryNodeProximity",
+      "description": "Compute the closest location on the target geometry",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Raycast",
+      "type": "GeometryNodeRaycast",
+      "description": "Cast rays from the context geometry onto a target geometry, and retrieve information from each hit point",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Realize Instances",
+      "type": "GeometryNodeRealizeInstances",
+      "description": "Convert instances into real geometry data",
+      "category": "Instances",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Remove Named Attribute",
+      "type": "GeometryNodeRemoveAttribute",
+      "description": "Delete an attribute with a specified name from a geometry. Typically used to optimize performance",
+      "category": "Attribute",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Repeat Input",
+      "type": "GeometryNodeRepeatInput",
+      "description": "",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 23
+    },
+    {
+      "name": "Repeat Output",
+      "type": "GeometryNodeRepeatOutput",
+      "description": "",
+      "category": "Output",
+      "properties_count": 26,
+      "functions_count": 22
+    },
+    {
+      "name": "Replace Material",
+      "type": "GeometryNodeReplaceMaterial",
+      "description": "Swap one material with another",
+      "category": "Material",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Resample Curve",
+      "type": "GeometryNodeResampleCurve",
+      "description": "Generate a poly spline for each input spline",
+      "category": "Curve",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Reverse Curve",
+      "type": "GeometryNodeReverseCurve",
+      "description": "Change the direction of curves by swapping their start and end data",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Rotate Instances",
+      "type": "GeometryNodeRotateInstances",
+      "description": "Rotate geometry instances in local or global space",
+      "category": "Instances",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "SDF Grid Boolean",
+      "type": "GeometryNodeSDFGridBoolean",
+      "description": "Cut, subtract, or join multiple SDF volume grid inputs",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Sample Curve",
+      "type": "GeometryNodeSampleCurve",
+      "description": "Retrieve data from a point on a curve at a certain distance from its start",
+      "category": "Curve",
+      "properties_count": 25,
+      "functions_count": 22
+    },
+    {
+      "name": "Sample Grid",
+      "type": "GeometryNodeSampleGrid",
+      "description": "",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Sample Grid Index",
+      "type": "GeometryNodeSampleGridIndex",
+      "description": "Retrieve volume grid values at specific voxels",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Sample Index",
+      "type": "GeometryNodeSampleIndex",
+      "description": "Retrieve values from specific geometry elements",
+      "category": "Other",
+      "properties_count": 25,
+      "functions_count": 22
+    },
+    {
+      "name": "Sample Nearest",
+      "type": "GeometryNodeSampleNearest",
+      "description": "Find the element of a geometry closest to a position. Similar to the \"Index of Nearest\" node",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Sample Nearest Surface",
+      "type": "GeometryNodeSampleNearestSurface",
+      "description": "Calculate the interpolated value of a mesh attribute on the closest point of its surface",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Sample UV Surface",
+      "type": "GeometryNodeSampleUVSurface",
+      "description": "Calculate the interpolated values of a mesh attribute at a UV coordinate",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Scale Elements",
+      "type": "GeometryNodeScaleElements",
+      "description": "Scale groups of connected edges and faces",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Scale Instances",
+      "type": "GeometryNodeScaleInstances",
+      "description": "Scale geometry instances in local or global space",
+      "category": "Instances",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Self Object",
+      "type": "GeometryNodeSelfObject",
+      "description": "Retrieve the object that contains the geometry nodes modifier currently being executed",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Separate Bundle",
+      "type": "GeometryNodeSeparateBundle",
+      "description": "Split a bundle into multiple sockets.",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Separate Components",
+      "type": "GeometryNodeSeparateComponents",
+      "description": "Split a geometry into a separate output for each type of data in the geometry",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Separate Geometry",
+      "type": "GeometryNodeSeparateGeometry",
+      "description": "Split a geometry into two geometry outputs based on a selection",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Handle Positions",
+      "type": "GeometryNodeSetCurveHandlePositions",
+      "description": "Set the positions for the handles of Bézier curves",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Curve Normal",
+      "type": "GeometryNodeSetCurveNormal",
+      "description": "Set the evaluation mode for curve normals",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Curve Radius",
+      "type": "GeometryNodeSetCurveRadius",
+      "description": "Set the radius of the curve at each control point",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Curve Tilt",
+      "type": "GeometryNodeSetCurveTilt",
+      "description": "Set the tilt angle at each curve control point",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Geometry Name",
+      "type": "GeometryNodeSetGeometryName",
+      "description": "Set the name of a geometry for easier debugging",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Grease Pencil Color",
+      "type": "GeometryNodeSetGreasePencilColor",
+      "description": "Set color and opacity attributes on Grease Pencil geometry",
+      "category": "Color",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Grease Pencil Depth",
+      "type": "GeometryNodeSetGreasePencilDepth",
+      "description": "Set the Grease Pencil depth order to use",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Grease Pencil Softness",
+      "type": "GeometryNodeSetGreasePencilSoftness",
+      "description": "Set softness attribute on Grease Pencil geometry",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set ID",
+      "type": "GeometryNodeSetID",
+      "description": "Set the id attribute on the input geometry, mainly used internally for randomizing",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Instance Transform",
+      "type": "GeometryNodeSetInstanceTransform",
+      "description": "Set the transformation matrix of every instance",
+      "category": "Instances",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Material",
+      "type": "GeometryNodeSetMaterial",
+      "description": "Assign a material to geometry elements",
+      "category": "Material",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Material Index",
+      "type": "GeometryNodeSetMaterialIndex",
+      "description": "Set the material index for each selected geometry element",
+      "category": "Material",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Mesh Normal",
+      "type": "GeometryNodeSetMeshNormal",
+      "description": "Store a normal vector for each mesh element",
+      "category": "Mesh",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Point Radius",
+      "type": "GeometryNodeSetPointRadius",
+      "description": "Set the display size of point cloud points",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Position",
+      "type": "GeometryNodeSetPosition",
+      "description": "Set the location of each point",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Shade Smooth",
+      "type": "GeometryNodeSetShadeSmooth",
+      "description": "Control the smoothness of mesh normals around each face by changing the \"shade smooth\" attribute",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Spline Cyclic",
+      "type": "GeometryNodeSetSplineCyclic",
+      "description": "Control whether each spline loops back on itself by changing the \"cyclic\" attribute",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Spline Resolution",
+      "type": "GeometryNodeSetSplineResolution",
+      "description": "Control how many evaluated points should be generated on every curve segment",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Simulation Input",
+      "type": "GeometryNodeSimulationInput",
+      "description": "Input data for the simulation zone",
+      "category": "Input",
+      "properties_count": 23,
+      "functions_count": 23
+    },
+    {
+      "name": "Simulation Output",
+      "type": "GeometryNodeSimulationOutput",
+      "description": "Output data from the simulation zone",
+      "category": "Output",
+      "properties_count": 25,
+      "functions_count": 22
+    },
+    {
+      "name": "Sort Elements",
+      "type": "GeometryNodeSortElements",
+      "description": "Rearrange geometry elements, changing their indices",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Spline Length",
+      "type": "GeometryNodeSplineLength",
+      "description": "Retrieve the total length of each spline, as a distance or as a number of points",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Spline Parameter",
+      "type": "GeometryNodeSplineParameter",
+      "description": "Retrieve how far along each spline a control point is",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Split Edges",
+      "type": "GeometryNodeSplitEdges",
+      "description": "Duplicate mesh edges and break connections with the surrounding faces",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Split to Instances",
+      "type": "GeometryNodeSplitToInstances",
+      "description": "Create separate geometries containing the elements from the same group",
+      "category": "Instances",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Store Named Attribute",
+      "type": "GeometryNodeStoreNamedAttribute",
+      "description": "Store the result of a field on a geometry as an attribute with the specified name",
+      "category": "Attribute",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Store Named Grid",
+      "type": "GeometryNodeStoreNamedGrid",
+      "description": "Store grid data in a volume geometry with the specified name",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Join Strings",
+      "type": "GeometryNodeStringJoin",
+      "description": "Combine any number of input strings",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "String to Curves",
+      "type": "GeometryNodeStringToCurves",
+      "description": "Generate a paragraph of text with a specific font, using a curve instance to store each character",
+      "category": "Curve",
+      "properties_count": 27,
+      "functions_count": 22
+    },
+    {
+      "name": "Subdivide Curve",
+      "type": "GeometryNodeSubdivideCurve",
+      "description": "Dividing each curve segment into a specified number of pieces",
+      "category": "Curve",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Subdivide Mesh",
+      "type": "GeometryNodeSubdivideMesh",
+      "description": "Divide mesh faces into smaller ones without changing the shape or volume, using linear interpolation to place the new vertices",
+      "category": "Mesh",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Subdivision Surface",
+      "type": "GeometryNodeSubdivisionSurface",
+      "description": "Divide mesh faces to form a smooth surface, using the Catmull-Clark subdivision method",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Switch",
+      "type": "GeometryNodeSwitch",
+      "description": "Switch between two inputs",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "3D Cursor",
+      "type": "GeometryNodeTool3DCursor",
+      "description": "The scene's 3D cursor location and rotation",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Active Element",
+      "type": "GeometryNodeToolActiveElement",
+      "description": "Active element indices of the edited geometry, for tool execution",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Face Set",
+      "type": "GeometryNodeToolFaceSet",
+      "description": "Each face's sculpt face set value",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Mouse Position",
+      "type": "GeometryNodeToolMousePosition",
+      "description": "Retrieve the position of the mouse cursor",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Selection",
+      "type": "GeometryNodeToolSelection",
+      "description": "User selection of the edited geometry, for tool execution",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Face Set",
+      "type": "GeometryNodeToolSetFaceSet",
+      "description": "Set sculpt face set values for faces",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Set Selection",
+      "type": "GeometryNodeToolSetSelection",
+      "description": "Set selection of the edited geometry, for tool execution",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Transform Geometry",
+      "type": "GeometryNodeTransform",
+      "description": "Translate, rotate or scale the geometry",
+      "category": "Transform",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Translate Instances",
+      "type": "GeometryNodeTranslateInstances",
+      "description": "Move top-level geometry instances in local or global space",
+      "category": "Instances",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Geometry Node Tree",
+      "type": "GeometryNodeTree",
+      "description": "Node tree consisting of linked nodes used for geometries",
+      "category": "Other",
+      "properties_count": 41,
+      "functions_count": 23
+    },
+    {
+      "name": "Triangulate",
+      "type": "GeometryNodeTriangulate",
+      "description": "Convert all faces in a mesh to triangular faces",
+      "category": "Other",
+      "properties_count": 24,
+      "functions_count": 22
+    },
+    {
+      "name": "Trim Curve",
+      "type": "GeometryNodeTrimCurve",
+      "description": "Shorten curves by removing portions at the start or end",
+      "category": "Curve",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Pack UV Islands",
+      "type": "GeometryNodeUVPackIslands",
+      "description": "Scale islands of a UV map and move them so they fill the UV space as much as possible",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "UV Unwrap",
+      "type": "GeometryNodeUVUnwrap",
+      "description": "Generate a UV map based on seam edges",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Vertex of Corner",
+      "type": "GeometryNodeVertexOfCorner",
+      "description": "Retrieve the vertex each face corner is attached to",
+      "category": "Other",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Viewer",
+      "type": "GeometryNodeViewer",
+      "description": "Display the input data in the Spreadsheet Editor",
+      "category": "Other",
+      "properties_count": 25,
+      "functions_count": 22
+    },
+    {
+      "name": "Viewport Transform",
+      "type": "GeometryNodeViewportTransform",
+      "description": "Retrieve the view direction and location of the 3D viewport",
+      "category": "Transform",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Volume Cube",
+      "type": "GeometryNodeVolumeCube",
+      "description": "Generate a dense volume with a field that controls the density at each grid voxel based on its position",
+      "category": "Volume",
+      "properties_count": 22,
+      "functions_count": 22
+    },
+    {
+      "name": "Volume to Mesh",
+      "type": "GeometryNodeVolumeToMesh",
+      "description": "Generate a mesh on the \"surface\" of a volume",
+      "category": "Mesh",
+      "properties_count": 23,
+      "functions_count": 22
+    },
+    {
+      "name": "Warning",
+      "type": "GeometryNodeWarning",
+      "description": "Create custom warnings in node groups",
+      "category": "Other",
+      "properties_count": 23,
+      "functions_count": 22
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+# Python bytecode cache directories
+__pycache__/
+**/__pycache__/
+
+# Generated Python files
+*_gen.py
+
+# Pytest cache directories
+.pytest_cache/
+**/.pytest_cache/
