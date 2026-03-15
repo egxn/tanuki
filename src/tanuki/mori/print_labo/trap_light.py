@@ -289,3 +289,37 @@ def h_motor():
 
         output(motor)
     return ctx.graph
+
+
+ALL_PARTS = [
+    create_case,
+    create_cartridge_film_35mm,
+    create_film_roll,
+    create_knockout_covers_top,
+    create_knockout_covers_bottom,
+    create_film_lever,
+    create_film_box,
+    cog_roll,
+    cog_axis,
+    cog_film_axis,
+    lens_mount,
+    h_motor,
+]
+
+if __name__ == "__main__":
+    import argparse
+    from tanuki.dsl.export import combined_export, individual_export
+
+    parser = argparse.ArgumentParser(description="Compile trap light parts")
+    parser.add_argument("--mode", choices=["combined", "individual"], default="combined")
+    parser.add_argument("--output", default=None)
+    args = parser.parse_args()
+
+    if args.mode == "combined":
+        out = args.output or "trap_light_gen.py"
+        path = combined_export(ALL_PARTS, out)
+        print(f"Generated {len(ALL_PARTS)} parts in {path} ({path.stat().st_size // 1024} KB)")
+    else:
+        out = args.output or "trap_light_gen"
+        written = individual_export(ALL_PARTS, out)
+        print(f"Generated {len(written)} files in {out}/")

@@ -528,11 +528,12 @@ def _compile_primitive(node: IRPrimitive, em: _Emitter) -> str:
         em.line(f'{var}.inputs["Subdivisions"].default_value = {props["subdivisions"]}')
 
     elif node.primitive_type == PrimitiveType.LINE:
+        em.line(f'{var}.mode = "END_POINTS"')
         em.line(f'{var}.inputs["Count"].default_value = {props["count"]}')
         start_var = _compile_vector(IRVector(value=props["start_location"], label=f"{node.label} start"), em)
         end_var = _compile_vector(IRVector(value=props["end_location"], label=f"{node.label} end"), em)
         em.line(f'node_tree.links.new({start_var}.outputs["Vector"], {var}.inputs["Start Location"])')
-        em.line(f'node_tree.links.new({end_var}.outputs["Vector"], {var}.inputs["End Location"])')
+        em.line(f'node_tree.links.new({end_var}.outputs["Vector"], {var}.inputs["Offset"])')
 
     elif node.primitive_type == PrimitiveType.CURVE_ARC:
         em.line(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')

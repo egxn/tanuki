@@ -43,4 +43,5 @@ from .other_ops import (
 )
 from .attribute_ops import store_named_attribute, remove_named_attribute
 from .importers import import_obj, import_stl, import_ply, import_csv, import_vdb, collection_info, object_info
+from .export import combined_export, individual_export
 from .context import model, output

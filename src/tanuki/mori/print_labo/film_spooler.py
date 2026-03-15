@@ -68,3 +68,27 @@ def create_h_base_120():
 
         output(h_base_120)
     return ctx.graph
+
+
+ALL_PARTS = [
+    create_film_spooler,
+    create_h_base_120,
+]
+
+if __name__ == "__main__":
+    import argparse
+    from tanuki.dsl.export import combined_export, individual_export
+
+    parser = argparse.ArgumentParser(description="Compile film spooler parts")
+    parser.add_argument("--mode", choices=["combined", "individual"], default="combined")
+    parser.add_argument("--output", default=None)
+    args = parser.parse_args()
+
+    if args.mode == "combined":
+        out = args.output or "film_spooler_gen.py"
+        path = combined_export(ALL_PARTS, out)
+        print(f"Generated {len(ALL_PARTS)} parts in {path} ({path.stat().st_size // 1024} KB)")
+    else:
+        out = args.output or "film_spooler_gen"
+        written = individual_export(ALL_PARTS, out)
+        print(f"Generated {len(written)} files in {out}/")

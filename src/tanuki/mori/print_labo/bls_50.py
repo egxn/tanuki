@@ -50,8 +50,24 @@ def create_bls_50_battery():
     return ctx.graph
 
 
-if __name__ == "__main__":
-    from tanuki.backends import render
+ALL_PARTS = [
+    create_bls_50_battery,
+]
 
-    graph = create_bls_50_battery()
-    render(graph, target="blender", mode="script", output_path="bls_50_battery_gen.py")
+if __name__ == "__main__":
+    import argparse
+    from tanuki.dsl.export import combined_export, individual_export
+
+    parser = argparse.ArgumentParser(description="Compile BLS-50 battery parts")
+    parser.add_argument("--mode", choices=["combined", "individual"], default="combined")
+    parser.add_argument("--output", default=None)
+    args = parser.parse_args()
+
+    if args.mode == "combined":
+        out = args.output or "bls_50_battery_gen.py"
+        path = combined_export(ALL_PARTS, out)
+        print(f"Generated {len(ALL_PARTS)} parts in {path} ({path.stat().st_size // 1024} KB)")
+    else:
+        out = args.output or "bls_50_battery_gen"
+        written = individual_export(ALL_PARTS, out)
+        print(f"Generated {len(written)} files in {out}/")

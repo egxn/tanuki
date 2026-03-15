@@ -25,8 +25,24 @@ def create_tray():
     return ctx.graph
 
 
-if __name__ == "__main__":
-    from tanuki.backends import render
+ALL_PARTS = [
+    create_tray,
+]
 
-    graph = create_tray()
-    render(graph, target="blender", mode="script", output_path="tray_gen.py")
+if __name__ == "__main__":
+    import argparse
+    from tanuki.dsl.export import combined_export, individual_export
+
+    parser = argparse.ArgumentParser(description="Compile tray parts")
+    parser.add_argument("--mode", choices=["combined", "individual"], default="combined")
+    parser.add_argument("--output", default=None)
+    args = parser.parse_args()
+
+    if args.mode == "combined":
+        out = args.output or "tray_gen.py"
+        path = combined_export(ALL_PARTS, out)
+        print(f"Generated {len(ALL_PARTS)} parts in {path} ({path.stat().st_size // 1024} KB)")
+    else:
+        out = args.output or "tray_gen"
+        written = individual_export(ALL_PARTS, out)
+        print(f"Generated {len(written)} files in {out}/")

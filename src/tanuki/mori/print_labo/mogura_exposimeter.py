@@ -73,3 +73,28 @@ def create_clockwork_knob():
 
         output(knob)
     return ctx.graph
+
+
+ALL_PARTS = [
+    create_container,
+    create_box,
+    create_clockwork_knob,
+]
+
+if __name__ == "__main__":
+    import argparse
+    from tanuki.dsl.export import combined_export, individual_export
+
+    parser = argparse.ArgumentParser(description="Compile mogura exposimeter parts")
+    parser.add_argument("--mode", choices=["combined", "individual"], default="combined")
+    parser.add_argument("--output", default=None)
+    args = parser.parse_args()
+
+    if args.mode == "combined":
+        out = args.output or "mogura_exposimeter_gen.py"
+        path = combined_export(ALL_PARTS, out)
+        print(f"Generated {len(ALL_PARTS)} parts in {path} ({path.stat().st_size // 1024} KB)")
+    else:
+        out = args.output or "mogura_exposimeter_gen"
+        written = individual_export(ALL_PARTS, out)
+        print(f"Generated {len(written)} files in {out}/")

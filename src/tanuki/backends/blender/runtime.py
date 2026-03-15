@@ -275,11 +275,12 @@ def _exec_primitive(node: IRPrimitive, rt: _Runtime):
             bpy_node.inputs["Subdivisions"].default_value = props["subdivisions"]
 
     elif node.primitive_type == PrimitiveType.LINE:
+        bpy_node.mode = "END_POINTS"
         bpy_node.inputs["Count"].default_value = props.get("count", 10)
         if "start_location" in props:
             bpy_node.inputs["Start Location"].default_value = list(props["start_location"])
         if "end_location" in props:
-            bpy_node.inputs["End Location"].default_value = list(props["end_location"])
+            bpy_node.inputs["Offset"].default_value = list(props["end_location"])
 
     elif node.primitive_type == PrimitiveType.CURVE_ARC:
         bpy_node.inputs["Resolution"].default_value = props.get("resolution", 16)

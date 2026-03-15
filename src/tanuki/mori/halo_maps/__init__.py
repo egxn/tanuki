@@ -10,6 +10,8 @@ Pipeline overview::
     generate_symmetry_layout(mode)      # symmetry helper Empty
     generate_spawn_zones(n_red, n_blue) # spawn point Empties
 
+    generate_naranjos()                 # naranjos map buildings + borders
+
     validate_closed_geometry(obj)       # boundary edge check
     validate_manifold_edges(obj)        # manifold check
     validate_duplicate_vertices(obj)    # merge-distance check
@@ -48,6 +50,9 @@ from .validators import (
 
 from .export import export_jms
 
+from .naranjos.generate import generate_naranjos
+from .naranjos.generate_dsl import generate_naranjos_dsl
+
 __all__ = [
     # scene
     "setup_scene",
@@ -70,4 +75,7 @@ __all__ = [
     "run_all_validators",
     # export
     "export_jms",
+    # naranjos map
+    "generate_naranjos",
+    "generate_naranjos_dsl",
 ]
