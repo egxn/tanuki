@@ -1,6 +1,6 @@
 # DSL Progress — Geometry Nodes Coverage
 
-**Total: 116 / 223 unique Blender nodes implemented (52.0%)**
+**Total: 140 / 223 unique Blender nodes implemented (62.8%)**
 
 ## Mesh Nodes (20 / 22)
 
@@ -184,28 +184,28 @@
 - [ ] Instance Rotation
 - [ ] Instance Scale
 
-## Input Nodes (0 / 37)
+## Input Nodes (13 / 37)
 
 ### Geometry Fields
 
-- [ ] Input > Position
-- [ ] Input > Normal
-- [ ] Input > Index
-- [ ] Input > ID
+- [x] Input > Position — `position()`
+- [x] Input > Normal — `normal()`
+- [x] Input > Index — `index()`
+- [x] Input > ID — `id_field()`
 - [ ] Input > Radius
 
 ### Mesh Info
 
-- [ ] Input > Edge Angle
-- [ ] Input > Edge Neighbors
-- [ ] Input > Edge Vertices
-- [ ] Input > Face Area
-- [ ] Input > Face Neighbors
+- [x] Input > Edge Angle — `edge_angle(unsigned)`
+- [x] Input > Edge Neighbors — `edge_neighbors()`
+- [x] Input > Edge Vertices — `edge_vertices(output)`
+- [x] Input > Face Area — `face_area()`
+- [x] Input > Face Neighbors — `face_neighbors(output)`
 - [ ] Input > Is Edge Smooth
 - [ ] Input > Is Face Planar
 - [ ] Input > Is Face Smooth
-- [ ] Input > Mesh Island
-- [ ] Input > Vertex Neighbors
+- [x] Input > Mesh Island — `mesh_island(output)`
+- [x] Input > Vertex Neighbors — `vertex_neighbors(output)`
 - [ ] Input > Shortest Edge Paths
 
 ### Curve / Spline Info
@@ -230,7 +230,7 @@
 
 - [ ] Input > Material
 - [ ] Input > Material Index
-- [ ] Input > Named Attribute
+- [x] Input > Named Attribute — `named_attribute(name, data_type)`
 - [ ] Input > Named Layer Selection
 
 ### Scene / Object
@@ -247,6 +247,102 @@
 - [ ] Input > For Each Geometry Element Input
 - [ ] Input > Repeat Input
 - [ ] Input > Simulation Input
+
+> Note: All field input nodes use the new `IRFieldInput` IR type. They produce per-element values (scalar, vector, integer) evaluated in context — they have no geometry input socket.
+
+## Math Nodes (11 / 11)
+
+Math nodes use the `IRMathOp` IR type. They are exposed as pure functions in `tanuki.dsl.math_ops`.
+
+### Scalar Math (`ShaderNodeMath`)
+
+- [x] Add — `math_add(a, b)`
+- [x] Subtract — `math_subtract(a, b)`
+- [x] Multiply — `math_multiply(a, b)`
+- [x] Divide — `math_divide(a, b)`
+- [x] Power — `math_power(base, exponent)`
+- [x] Sqrt — `math_sqrt(a)`
+- [x] Absolute — `math_absolute(a)`
+- [x] Minimum — `math_minimum(a, b)`
+- [x] Maximum — `math_maximum(a, b)`
+- [x] Less Than — `math_less_than(a, b)`
+- [x] Greater Than — `math_greater_than(a, b)`
+- [x] Sine — `math_sin(a)`
+- [x] Cosine — `math_cos(a)`
+- [x] Tangent — `math_tan(a)`
+- [x] Arctan2 — `math_arctan2(a, b)`
+- [x] Floor — `math_floor(a)`
+- [x] Ceil — `math_ceil(a)`
+- [x] Round — `math_round(a)`
+- [x] Modulo — `math_modulo(a, b)`
+
+### Vector Math (`ShaderNodeVectorMath`)
+
+- [x] Add — `vec_add(a, b)`
+- [x] Subtract — `vec_subtract(a, b)`
+- [x] Multiply — `vec_multiply(a, b)`
+- [x] Divide — `vec_divide(a, b)`
+- [x] Cross Product — `vec_cross(a, b)`
+- [x] Dot Product — `vec_dot(a, b)` *(scalar output)*
+- [x] Normalize — `vec_normalize(a)`
+- [x] Length — `vec_length(a)` *(scalar output)*
+- [x] Distance — `vec_distance(a, b)` *(scalar output)*
+- [x] Scale — `vec_scale(vector, scale)`
+- [x] Project — `vec_project(a, b)`
+- [x] Reflect — `vec_reflect(a, b)`
+- [x] Faceforward — `vec_faceforward(a, b, c)`
+- [x] Minimum — `vec_minimum(a, b)`
+- [x] Maximum — `vec_maximum(a, b)`
+- [x] Floor — `vec_floor(a)`
+- [x] Ceil — `vec_ceil(a)`
+- [x] Absolute — `vec_absolute(a)`
+- [x] Sine — `vec_sin(a)`
+- [x] Cosine — `vec_cos(a)`
+- [x] Tangent — `vec_tan(a)`
+
+> Note: Both Math and VectorMath are Blender utility nodes (not in the Geometry Nodes registry but used extensively within node trees). All operations from both nodes are fully implemented.
+
+## Custom Composite Nodes
+
+**Module:** `tanuki.dsl.custom`
+
+Custom nodes are high-level operations composed from DSL primitives. They live in `src/tanuki/dsl/custom/` and build on the existing field, math, and geometry op modules to create reusable analysis and visualization tools.
+
+### Mesh Analysis (`tanuki.dsl.custom.mesh_analysis`)
+
+Given a mesh geometry, generates three visualization groups:
+
+| Function | Output | Description |
+|---|---|---|
+| `edges_group()` | Curves | All mesh edges converted to curves via `MeshToCurve` |
+| `faces_group()` | Mesh | The mesh geometry as-is (semantic pass-through — the mesh *is* the face data) |
+| `angles_group(arm_length)` | Points + Attributes | Per-edge points with direction vectors and dihedral angle stored as named attributes |
+| `mesh_analysis(mesh, arm_length)` | Joined geometry | Combines all three into a single `join()` |
+
+The `angles_group` implements the following Geometry Nodes graph:
+
+1. **Edge Vertices** → positions `P1`, `P2` of each edge
+2. **VectorMath(Subtract)** → direction `P2 - P1` and `P1 - P2`
+3. **VectorMath(Normalize)** → unit direction vectors
+4. **VectorMath(Scale)** → arms of length `arm_length`
+5. **Mesh to Points (EDGES)** → one point per edge
+6. **Store Named Attribute** × 3 → `_arm_dir_1`, `_arm_dir_2` (vectors), `_edge_angle` (float)
+
+Usage:
+
+```python
+from tanuki import *
+from tanuki.dsl.custom import mesh_analysis
+
+with model("analysis") as ctx:
+    base = cube(2, 2, 2, "box")
+    result = mesh_analysis(base, arm_length=0.3)
+    output(result)
+
+combined_export([ctx.graph], "mesh_analysis_output.py")
+```
+
+To create your own custom nodes, add a new `.py` module to `src/tanuki/dsl/custom/` and re-export from `custom/__init__.py`. Custom nodes follow the same `Op = Callable[[IRNode], IRNode]` pattern and compose with `|`.
 
 ## Transform Nodes (1 / 3)
 
@@ -364,3 +460,6 @@ Key nodes pending:
 - [x] Group Output — `output()` (conceptual, not in Blender registry)
 - [x] Pipe operator `|` for composability
 - [x] `IRGeometryOp` generic pattern with `extra_children` for multi-input ops
+- [x] `IRFieldInput` for per-element field nodes (Position, Normal, Edge Angle, etc.)
+- [x] `IRMathOp` for scalar (`ShaderNodeMath`) and vector (`ShaderNodeVectorMath`) math operations
+- [x] `dsl/custom/` framework for composing high-level nodes from DSL primitives

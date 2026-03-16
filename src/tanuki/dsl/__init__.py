@@ -43,5 +43,23 @@ from .other_ops import (
 )
 from .attribute_ops import store_named_attribute, remove_named_attribute
 from .importers import import_obj, import_stl, import_ply, import_csv, import_vdb, collection_info, object_info
+from .field_nodes import (
+    position, normal, index, id_field,
+    edge_vertices, edge_angle,
+    vertex_neighbors, face_neighbors, face_area,
+    edge_neighbors, mesh_island, named_attribute,
+)
+from .math_ops import (
+    math_add, math_subtract, math_multiply, math_divide,
+    math_power, math_sqrt, math_absolute, math_minimum, math_maximum,
+    math_less_than, math_greater_than,
+    math_sin, math_cos, math_tan, math_arctan2,
+    math_floor, math_ceil, math_round, math_modulo,
+    vec_add, vec_subtract, vec_multiply, vec_divide,
+    vec_cross, vec_dot, vec_normalize, vec_length, vec_distance, vec_scale,
+    vec_project, vec_reflect, vec_faceforward,
+    vec_minimum, vec_maximum, vec_floor, vec_ceil, vec_absolute,
+    vec_sin, vec_cos, vec_tan,
+)
 from .export import combined_export, individual_export
 from .context import model, output

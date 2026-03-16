@@ -186,6 +186,41 @@ class IRSeparateComponents(IRNode):
 
 
 @dataclass(frozen=True)
+class IRFieldInput(IRNode):
+    """Field input node (Position, Normal, Index, Edge Angle, etc.).
+
+    These nodes have no geometry input — they produce field values
+    evaluated per-element in the context where they are used.
+
+    ``field_type`` is the Blender node type string, e.g.
+    ``"GeometryNodeInputPosition"``.
+    ``output_socket`` selects which output to use (default first).
+    """
+
+    field_type: str = ""
+    output_socket: str = ""
+    properties: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class IRMathOp(IRNode):
+    """Scalar or vector math operation.
+
+    ``math_type`` is the Blender node type (``"ShaderNodeMath"`` or
+    ``"ShaderNodeVectorMath"``).
+    ``operation`` is the Blender enum string (``"ADD"``, ``"SUBTRACT"``,
+    ``"MULTIPLY"``, ``"NORMALIZE"``, etc.).
+    ``inputs`` maps socket names/indices to IR nodes that provide the values.
+    ``clamp`` enables output clamping (scalar math only).
+    """
+
+    math_type: str = ""                     # "ShaderNodeMath" | "ShaderNodeVectorMath"
+    operation: str = "ADD"
+    inputs: dict[str, IRNode] = field(default_factory=dict)
+    clamp: bool = False
+
+
+@dataclass(frozen=True)
 class IROutput(IRNode):
     """Root output node of the graph."""
 

@@ -4,6 +4,40 @@
   "floors": 1,
   "path_name": "transicion",
   "floor_height": 2.28,
+  "windows": {
+    "width": 0.72,
+    "height": 1,
+    "quantity": {
+      "side_a": 0,
+      "side_b": 0,
+      "side_c": 0,
+      "side_d": 6
+    },
+    "distribution": {
+      "side_a": [
+        1.20,0.24,0.24,7,0.24,0.24
+      ],
+      "side_b": [],
+      "side_c": [],
+      "side_d": []
+    }
+  },
+  "doors": {
+    "width": 0,
+    "height": 0,
+    "quantity": {
+      "side_a": 0,
+      "side_b": 0,
+      "side_c": 0,
+      "side_d": 2
+    },
+    "distribution": {
+      "side_a": [],
+      "side_b": [],
+      "side_c": [],
+      "side_d": []
+    }
+  },
   "meta": {
     "bricks_h": 38
     }

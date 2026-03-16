@@ -16,9 +16,11 @@ from ...ir.graph import IRGraph
 from ...ir.nodes import (
     BooleanOp,
     IRBoolean,
+    IRFieldInput,
     IRGeometryOp,
     IRInstanceOnPoints,
     IRJoin,
+    IRMathOp,
     IRNode,
     IROutput,
     IRPrimitive,
@@ -658,6 +660,14 @@ def _get_geometry_output_socket(node: IRNode) -> str:
         return _GEOM_OP_OUTPUT.get(node.op_type, "Geometry")
     if isinstance(node, IRSeparateComponents):
         return node.component
+    if isinstance(node, IRFieldInput):
+        if node.output_socket:
+            return node.output_socket
+        return _FIELD_OUTPUT.get(node.field_type, "Value")
+    if isinstance(node, IRMathOp):
+        if node.math_type == "ShaderNodeVectorMath" and node.operation in _VECTOR_MATH_SCALAR_OUT:
+            return "Value"
+        return _MATH_OUTPUT.get(node.math_type, "Value")
     return "Geometry"
 
 
@@ -681,6 +691,10 @@ def _compile_node(node: IRNode, em: _Emitter) -> str:
         return _compile_geometry_op(node, em)
     if isinstance(node, IRSeparateComponents):
         return _compile_separate_components(node, em)
+    if isinstance(node, IRFieldInput):
+        return _compile_field_input(node, em)
+    if isinstance(node, IRMathOp):
+        return _compile_math_op(node, em)
     if isinstance(node, IRValue):
         return _compile_value(node, em)
     if isinstance(node, IRVector):
@@ -936,6 +950,94 @@ def _compile_separate_components(node: IRSeparateComponents, em: _Emitter) -> st
         em.line(f'node_tree.links.new({child_var}.outputs["{child_socket}"], {var}.inputs["Geometry"])')
 
     return var
+
+
+def _compile_field_input(node: IRFieldInput, em: _Emitter) -> str:
+    em.next_row()
+    var = em.new_var("field")
+    loc = em.next_location()
+    em.line(f'{var} = node_tree.nodes.new("{node.field_type}")')
+    em.line(f"{var}.location = {loc}")
+    em.line(f'{var}.label = {node.label!r}')
+
+    # Enum/mode properties on the node itself
+    for key, value in node.properties.items():
+        if isinstance(value, str):
+            em.line(f'{var}.{key} = "{value}"')
+        else:
+            em.line(f'{var}.{key} = {value}')
+
+    return var
+
+
+# Output socket name for field input nodes
+_FIELD_OUTPUT: dict[str, str] = {
+    "GeometryNodeInputPosition": "Position",
+    "GeometryNodeInputNormal": "Normal",
+    "GeometryNodeInputIndex": "Index",
+    "GeometryNodeInputMeshEdgeVertices": "Position 1",
+    "GeometryNodeInputMeshEdgeAngle": "Unsigned Angle",
+    "GeometryNodeInputMeshVertexNeighbors": "Vertex Count",
+    "GeometryNodeInputMeshFaceNeighbors": "Vertex Count",
+    "GeometryNodeInputMeshEdgeNeighbors": "Face Count",
+    "GeometryNodeInputMeshFaceArea": "Area",
+    "GeometryNodeInputMeshIsland": "Island Index",
+    "GeometryNodeInputID": "ID",
+    "GeometryNodeInputNamedAttribute": "Attribute",
+}
+
+# Math node output socket names
+_MATH_OUTPUT: dict[str, str] = {
+    "ShaderNodeMath": "Value",
+    "ShaderNodeVectorMath": "Vector",
+}
+
+# VectorMath ops that output a scalar instead of a vector
+_VECTOR_MATH_SCALAR_OUT = {"DOT_PRODUCT", "DISTANCE", "LENGTH"}
+
+
+def _compile_math_op(node: IRMathOp, em: _Emitter) -> str:
+    # Compile input nodes first
+    input_vars: dict[str, tuple[str, str]] = {}
+    for socket_key, input_node in node.inputs.items():
+        iv = _compile_node(input_node, em)
+        is_ = _get_field_output_socket(input_node)
+        input_vars[socket_key] = (iv, is_)
+
+    em.next_row()
+    var = em.new_var("math")
+    loc = em.next_location()
+    em.line(f'{var} = node_tree.nodes.new("{node.math_type}")')
+    em.line(f"{var}.location = {loc}")
+    em.line(f'{var}.label = {node.label!r}')
+    em.line(f'{var}.operation = "{node.operation}"')
+
+    if node.math_type == "ShaderNodeMath" and node.clamp:
+        em.line(f"{var}.use_clamp = True")
+
+    # Link inputs
+    for socket_key, (iv, is_) in input_vars.items():
+        em.line(f'node_tree.links.new({iv}.outputs["{is_}"], {var}.inputs["{socket_key}"])')
+
+    return var
+
+
+def _get_field_output_socket(node: IRNode) -> str:
+    """Resolve the output socket name for any node type."""
+    if isinstance(node, IRFieldInput):
+        if node.output_socket:
+            return node.output_socket
+        return _FIELD_OUTPUT.get(node.field_type, "Value")
+    if isinstance(node, IRMathOp):
+        if node.math_type == "ShaderNodeVectorMath" and node.operation in _VECTOR_MATH_SCALAR_OUT:
+            return "Value"
+        return _MATH_OUTPUT.get(node.math_type, "Value")
+    if isinstance(node, IRValue):
+        return "Value"
+    if isinstance(node, IRVector):
+        return "Vector"
+    # Fallback to geometry output socket
+    return _get_geometry_output_socket(node)
 
 
 def _compile_output(node: IROutput, em: _Emitter) -> str:

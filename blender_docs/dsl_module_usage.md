@@ -20,7 +20,10 @@ Complete reference for each DSL module with practical usage examples.
 12. [Attribute Ops (`attribute_ops`)](#12-attribute-ops)
 13. [Other Ops (`other_ops`)](#13-other-ops)
 14. [Importers (`importers`)](#14-importers)
-15. [DSL Patterns](#15-dsl-patterns)
+15. [Field Nodes (`field_nodes`)](#15-field-nodes)
+16. [Math Ops (`math_ops`)](#16-math-ops)
+17. [Custom Nodes (`custom`)](#17-custom-nodes)
+18. [DSL Patterns](#18-dsl-patterns)
 
 ---
 
@@ -773,7 +776,222 @@ with model("imports") as ctx:
 
 ---
 
-## 15. DSL Patterns
+## 15. Field Nodes
+
+**Module:** `tanuki.dsl.field_nodes`
+
+Field nodes produce per-element values (scalar, vector, integer) evaluated in the Geometry Nodes context. They have **no geometry input** — they are wired into input sockets of other nodes. All return an `IRFieldInput`.
+
+### Functions
+
+| Function | Blender Node | Output | Description |
+|----------|-------------|--------|-------------|
+| `position()` | Input Position | Vector | Per-element position |
+| `normal()` | Input Normal | Vector | Per-face/vertex normal |
+| `index()` | Index | Integer | Per-element index (0, 1, 2, …) |
+| `id_field()` | ID | Integer | Per-element ID attribute |
+| `edge_vertices(output)` | Edge Vertices | Vector/Int | Vertex positions and indices of each edge |
+| `edge_angle(unsigned)` | Edge Angle | Float | Angle between two faces sharing an edge |
+| `vertex_neighbors(output)` | Vertex Neighbors | Integer | Connected vertices/faces count per vertex |
+| `face_neighbors(output)` | Face Neighbors | Integer | Connected vertices/faces count per face |
+| `face_area()` | Face Area | Float | Area of each face |
+| `edge_neighbors()` | Edge Neighbors | Integer | Number of faces connected to each edge |
+| `mesh_island(output)` | Mesh Island | Integer | Island index and total count |
+| `named_attribute(name, data_type)` | Named Attribute | Varies | Read a named attribute from geometry |
+
+### Usage
+
+```python
+from tanuki import *
+
+# Field nodes are used as inputs to math ops or geometry ops
+pos = position()          # Per-element position vector
+ang = edge_angle()        # Unsigned angle between adjacent faces
+p1 = edge_vertices("Position 1")  # First vertex position of each edge
+p2 = edge_vertices("Position 2")  # Second vertex position of each edge
+```
+
+### Output Socket Selection
+
+Some field nodes have multiple output sockets. Use the `output` parameter:
+
+```python
+edge_vertices("Position 1")     # First vertex position
+edge_vertices("Position 2")     # Second vertex position
+edge_vertices("Vertex Index 1") # First vertex index
+edge_vertices("Vertex Index 2") # Second vertex index
+
+vertex_neighbors("Vertex Count") # Number of connected vertices
+vertex_neighbors("Face Count")   # Number of connected faces
+
+edge_angle(unsigned=True)   # Always positive angle
+edge_angle(unsigned=False)  # Includes concavity sign
+```
+
+---
+
+## 16. Math Ops
+
+**Module:** `tanuki.dsl.math_ops`
+
+Scalar and vector math operations mirroring Blender's `ShaderNodeMath` and `ShaderNodeVectorMath`. All return an `IRMathOp` which produces field values that can be wired into geometry inputs.
+
+### Scalar Math
+
+| Function | Operation | Description |
+|----------|-----------|-------------|
+| `math_add(a, b)` | ADD | `a + b` |
+| `math_subtract(a, b)` | SUBTRACT | `a - b` |
+| `math_multiply(a, b)` | MULTIPLY | `a * b` |
+| `math_divide(a, b)` | DIVIDE | `a / b` |
+| `math_power(base, exp)` | POWER | `base ** exp` |
+| `math_sqrt(a)` | SQRT | Square root |
+| `math_absolute(a)` | ABSOLUTE | Absolute value |
+| `math_minimum(a, b)` | MINIMUM | `min(a, b)` |
+| `math_maximum(a, b)` | MAXIMUM | `max(a, b)` |
+| `math_less_than(a, b)` | LESS_THAN | `1.0 if a < b else 0.0` |
+| `math_greater_than(a, b)` | GREATER_THAN | `1.0 if a > b else 0.0` |
+| `math_sin(a)` | SINE | Sine (radians) |
+| `math_cos(a)` | COSINE | Cosine (radians) |
+| `math_tan(a)` | TANGENT | Tangent (radians) |
+| `math_arctan2(a, b)` | ARCTAN2 | `atan2(a, b)` |
+| `math_floor(a)` | FLOOR | Floor |
+| `math_ceil(a)` | CEIL | Ceiling |
+| `math_round(a)` | ROUND | Round |
+| `math_modulo(a, b)` | MODULO | Modulo |
+
+### Vector Math
+
+| Function | Operation | Output | Description |
+|----------|-----------|--------|-------------|
+| `vec_add(a, b)` | ADD | Vector | Component-wise add |
+| `vec_subtract(a, b)` | SUBTRACT | Vector | Component-wise subtract |
+| `vec_multiply(a, b)` | MULTIPLY | Vector | Component-wise multiply |
+| `vec_divide(a, b)` | DIVIDE | Vector | Component-wise divide |
+| `vec_cross(a, b)` | CROSS_PRODUCT | Vector | Cross product |
+| `vec_dot(a, b)` | DOT_PRODUCT | **Scalar** | Dot product |
+| `vec_normalize(a)` | NORMALIZE | Vector | Normalize to unit length |
+| `vec_length(a)` | LENGTH | **Scalar** | Vector length |
+| `vec_distance(a, b)` | DISTANCE | **Scalar** | Distance between vectors |
+| `vec_scale(vec, scale)` | SCALE | Vector | Scale vector by scalar |
+| `vec_project(a, b)` | PROJECT | Vector | Project *a* onto *b* |
+| `vec_reflect(a, b)` | REFLECT | Vector | Reflect *a* around *b* |
+| `vec_faceforward(a, b, c)` | FACEFORWARD | Vector | Faceforward |
+| `vec_minimum(a, b)` | MINIMUM | Vector | Component-wise min |
+| `vec_maximum(a, b)` | MAXIMUM | Vector | Component-wise max |
+| `vec_floor(a)` | FLOOR | Vector | Component-wise floor |
+| `vec_ceil(a)` | CEIL | Vector | Component-wise ceil |
+| `vec_absolute(a)` | ABSOLUTE | Vector | Component-wise abs |
+| `vec_sin(a)` | SINE | Vector | Component-wise sin |
+| `vec_cos(a)` | COSINE | Vector | Component-wise cos |
+| `vec_tan(a)` | TANGENT | Vector | Component-wise tan |
+
+### Usage
+
+```python
+from tanuki import *
+
+# Compute direction between two edge vertices
+p1 = edge_vertices("Position 1")
+p2 = edge_vertices("Position 2")
+direction = vec_normalize(vec_subtract(p2, p1))
+
+# Scale to a specific length
+from tanuki.ir.nodes import IRValue
+length = IRValue(value=0.5, label="arm_length")
+arm = vec_scale(direction, length)
+
+# Scalar math on field values
+angle = edge_angle()
+half_angle = math_divide(angle, IRValue(value=2.0, label="two"))
+```
+
+> Note: `vec_dot`, `vec_length`, and `vec_distance` produce **scalar** outputs. The compiler resolves this automatically via `_VECTOR_MATH_SCALAR_OUT`.
+
+---
+
+## 17. Custom Nodes
+
+**Module:** `tanuki.dsl.custom`
+
+Custom composite nodes are high-level operations built by composing existing DSL primitives, field nodes, and math ops. They live in `src/tanuki/dsl/custom/` and follow the same `Op = Callable[[IRNode], IRNode]` pattern.
+
+### Mesh Analysis (`tanuki.dsl.custom.mesh_analysis`)
+
+Analysis and visualization of mesh topology — edges, faces, and vertex angles.
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `edges_group()` | Op | Converts mesh edges to curves (via `MeshToCurve`) |
+| `faces_group()` | Op | Returns mesh as-is (semantic pass-through) |
+| `angles_group(arm_length)` | Op | Per-edge points with direction arm vectors and dihedral angle as named attributes |
+| `mesh_analysis(mesh, arm_length)` | IRJoin | Combines edges + faces + angles into one geometry |
+
+### How `angles_group` works
+
+The angle visualization builds the following field/math graph per edge:
+
+1. `edge_vertices("Position 1")` + `edge_vertices("Position 2")` → vertex positions
+2. `vec_subtract` → direction vectors `P2–P1` and `P1–P2`
+3. `vec_normalize` → unit direction vectors
+4. `vec_scale(dir, arm_length)` → scaled arm vectors
+5. `MeshToPoints(mode=EDGES)` → one point per edge
+6. `StoreNamedAttribute` × 3:
+   - `_arm_dir_1` (vector) — direction arm from vertex 1
+   - `_arm_dir_2` (vector) — direction arm from vertex 2
+   - `_edge_angle` (float) — unsigned dihedral angle
+
+### Usage
+
+```python
+from tanuki import *
+from tanuki.dsl.custom import mesh_analysis, edges_group, angles_group
+
+# Full analysis — three groups joined
+with model("full_analysis") as ctx:
+    base = cube(2, 2, 2, "box")
+    result = mesh_analysis(base, arm_length=0.3)
+    output(result)
+
+# Or use individual groups with piping
+with model("edges_only") as ctx:
+    base = ico_sphere(1.0, subdivisions=2, label="sphere")
+    edges = base | edges_group()
+    output(edges)
+
+# Angle arms on a complex mesh
+with model("angle_arms") as ctx:
+    base = cube(2, 2, 2, "box") | subdivide(level=2)
+    arms = base | angles_group(arm_length=0.5)
+    output(arms)
+```
+
+### Creating Your Own Custom Nodes
+
+To add a new custom node:
+
+1. Create a `.py` file in `src/tanuki/dsl/custom/`
+2. Import from `tanuki.dsl` and `tanuki.ir.nodes` as needed
+3. Define functions that return `Op` (for piping) or `IRNode` (for direct use)
+4. Re-export from `custom/__init__.py`
+
+```python
+# src/tanuki/dsl/custom/my_node.py
+from collections.abc import Callable
+from ...ir.nodes import IRGeometryOp, IRNode
+
+Op = Callable[[IRNode], IRNode]
+
+def my_custom_op(param: float = 1.0) -> Op:
+    def _apply(node: IRNode) -> IRNode:
+        # Compose existing DSL operations here
+        ...
+    return _apply
+```
+
+---
+
+## 18. DSL Patterns
 
 ### All functions are pure
 
@@ -848,8 +1066,10 @@ graph = ctx.graph
 | Material Nodes | 3 | 4 | 75% |
 | Volume Nodes | 3 | 3 | 100% |
 | Color Nodes | 1 | 1 | 100% |
-| Input Nodes | 0 | 37 | 0% |
+| Field Nodes | 13 | 37 | 35% |
 | Output Nodes | 0 | 4 | 0% |
 | Texture Nodes | 0 | 1 | 0% |
 | Other Nodes | 50 | 97 | 52% |
-| **Total** | **116** | **223** | **52%** |
+| Math Nodes | 11 | 11 | 100% |
+| Custom Nodes | 4 | — | — |
+| **Total** | **~140** | **223** | **~63%** |
