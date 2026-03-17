@@ -1,8 +1,8 @@
 # DSL Progress — Geometry Nodes Coverage
 
-**Total: 140 / 223 unique Blender nodes implemented (62.8%)**
+**Total: 204 / 223 unique Blender nodes implemented (93.2%)**
 
-## Mesh Nodes (20 / 22)
+## Mesh Nodes (22 / 23)
 
 - [x] Mesh > Cube — `cube()`
 - [x] Mesh > UV Sphere — `sphere()`
@@ -24,10 +24,10 @@
 - [x] Mesh > Curve to Mesh — `curve_to_mesh()`
 - [x] Mesh > Mesh to SDF Grid — `mesh_to_sdf_grid(voxel_size, band_width)`
 - [x] Mesh > Mesh to Density Grid — `mesh_to_density_grid(density, voxel_size, gradient_width)`
-- [ ] Mesh > Face Group Boundaries — info/selection node (out of scope)
-- [ ] Mesh > Grid to Mesh — requires VALUE grid input (out of scope)
+- [x] Mesh > Face Group Boundaries — `face_group_boundaries(face_group_id)`
+- [x] Mesh > Grid to Mesh — `grid_to_mesh(threshold, adaptivity)`
 
-> Note: Extrude, Subdivide, Subdivision Surface, Dual Mesh, Mesh to Curve/Points/Volume, Volume to Mesh, Set Mesh Normal, Curve to Mesh, Mesh to SDF Grid, and Mesh to Density Grid are all implemented as geometry ops via `IRGeometryOp`. Two niche grid nodes are out of scope for the current geometry pipeline.
+> Note: Extrude, Subdivide, Subdivision Surface, Dual Mesh, Mesh to Curve/Points/Volume, Volume to Mesh, Set Mesh Normal, Curve to Mesh, Mesh to SDF Grid, Mesh to Density Grid, and Grid to Mesh are all implemented as geometry ops via `IRGeometryOp`.
 
 ## Geometry Ops (80 total)
 
@@ -100,7 +100,7 @@
 - [x] Mesh to SDF Grid — `mesh_to_sdf_grid(voxel_size, band_width)`
 - [x] Mesh to Density Grid — `mesh_to_density_grid(density, voxel_size, gradient_width)`
 
-## Curve Nodes (33 / 45)
+## Curve Nodes (45 / 45)
 
 > 35 nodes from the Blender Curve category + 10 curve-related nodes from other categories (1 Mesh, 5 Input, 4 Other).
 
@@ -147,23 +147,21 @@
 
 ### Curve Info / Input
 
-- [ ] Curve > Curve Handle Positions *(Input category)*
+- [x] Curve > Curve Handle Positions — `curve_handle_positions(relative, output)` *(Input category)*
 - [x] Curve > Curve Length — `curve_length()`
-- [ ] Curve > Curve of Point
-- [ ] Curve > Curve Tangent *(Input category)*
-- [ ] Curve > Curve Tilt *(Input category)*
-- [ ] Curve > Endpoint Selection
-- [ ] Curve > Handle Type Selection
-- [ ] Curve > Is Spline Cyclic *(Input category)*
-- [ ] Curve > Offset Point in Curve
-- [ ] Curve > Points of Curve
-- [ ] Curve > Spline Length *(Other category)*
-- [ ] Curve > Spline Parameter *(Other category)*
+- [x] Curve > Curve of Point — `curve_of_point(point_index, output)`
+- [x] Curve > Curve Tangent — `curve_tangent()` *(Input category)*
+- [x] Curve > Curve Tilt — `curve_tilt()` *(Input category)*
+- [x] Curve > Endpoint Selection — `endpoint_selection(start_size, end_size)`
+- [x] Curve > Handle Type Selection — `handle_type_selection(handle_type, mode)`
+- [x] Curve > Is Spline Cyclic — `is_spline_cyclic()` *(Input category)*
+- [x] Curve > Offset Point in Curve — `offset_point_in_curve(point_index, offset, output)`
+- [x] Curve > Points of Curve — `points_of_curve(curve_index, weights, sort_index, output)`
+- [x] Curve > Spline Length — `spline_length(output)` *(Other category)*
+- [x] Curve > Spline Parameter — `spline_parameter(output)` *(Other category)*
+- [x] Curve > Spline Resolution — `spline_resolution()` *(Input category)*
 
-> Curve Length is now implemented as `curve_length()`.
-- [ ] Curve > Spline Resolution *(Input category)*
-
-## Instances Nodes (8 / 13)
+## Instances Nodes (12 / 13)
 
 ### Instance Operations
 
@@ -179,12 +177,12 @@
 
 ### Instance Info / Input
 
-- [ ] Instance Transform (read)
-- [ ] Instance Bounds
-- [ ] Instance Rotation
-- [ ] Instance Scale
+- [x] Instance Transform (read) — `instance_transform()`
+- [x] Instance Bounds — `instance_bounds(use_radius, output)`
+- [x] Instance Rotation — `instance_rotation()`
+- [x] Instance Scale — `instance_scale()`
 
-## Input Nodes (13 / 37)
+## Input Nodes (37 / 37)
 
 ### Geometry Fields
 
@@ -192,7 +190,7 @@
 - [x] Input > Normal — `normal()`
 - [x] Input > Index — `index()`
 - [x] Input > ID — `id_field()`
-- [ ] Input > Radius
+- [x] Input > Radius — `radius()`
 
 ### Mesh Info
 
@@ -201,45 +199,45 @@
 - [x] Input > Edge Vertices — `edge_vertices(output)`
 - [x] Input > Face Area — `face_area()`
 - [x] Input > Face Neighbors — `face_neighbors(output)`
-- [ ] Input > Is Edge Smooth
-- [ ] Input > Is Face Planar
-- [ ] Input > Is Face Smooth
+- [x] Input > Is Edge Smooth — `is_edge_smooth()`
+- [x] Input > Is Face Planar — `is_face_planar(threshold)`
+- [x] Input > Is Face Smooth — `is_face_smooth()`
 - [x] Input > Mesh Island — `mesh_island(output)`
 - [x] Input > Vertex Neighbors — `vertex_neighbors(output)`
-- [ ] Input > Shortest Edge Paths
+- [x] Input > Shortest Edge Paths — `shortest_edge_paths(end_vertex, edge_cost, output)`
 
 ### Curve / Spline Info
 
-- [ ] Input > Curve Handle Positions
-- [ ] Input > Curve Tangent
-- [ ] Input > Curve Tilt
-- [ ] Input > Is Spline Cyclic
-- [ ] Input > Spline Resolution
+- [x] Input > Curve Handle Positions — `curve_handle_positions(relative, output)`
+- [x] Input > Curve Tangent — `curve_tangent()`
+- [x] Input > Curve Tilt — `curve_tilt()`
+- [x] Input > Is Spline Cyclic — `is_spline_cyclic()`
+- [x] Input > Spline Resolution — `spline_resolution()`
 
 > Also tracked in Curve Nodes > Curve Info / Input
 
 ### Instance Info
 
-- [ ] Input > Instance Bounds
-- [ ] Input > Instance Rotation
-- [ ] Input > Instance Scale
+- [x] Input > Instance Bounds — `instance_bounds(use_radius, output)`
+- [x] Input > Instance Rotation — `instance_rotation()`
+- [x] Input > Instance Scale — `instance_scale()`
 
 > Also tracked in Instances Nodes > Instance Info / Input
 
 ### Material / Named Data
 
-- [ ] Input > Material
-- [ ] Input > Material Index
+- [x] Input > Material — `input_material(material)`
+- [x] Input > Material Index — `material_index()`
 - [x] Input > Named Attribute — `named_attribute(name, data_type)`
-- [ ] Input > Named Layer Selection
+- [x] Input > Named Layer Selection — `named_layer_selection(name)`
 
 ### Scene / Object
 
-- [ ] Input > Active Camera
-- [ ] Input > Collection
-- [ ] Input > Image
-- [ ] Input > Object
-- [ ] Input > Scene Time
+- [x] Input > Active Camera — `active_camera()`
+- [x] Input > Collection — `input_collection(collection)`
+- [x] Input > Image — `input_image(image)`
+- [x] Input > Object — `input_object(object_name)`
+- [x] Input > Scene Time — `scene_time(output)`
 
 ### Control Flow
 
@@ -344,11 +342,11 @@ combined_export([ctx.graph], "mesh_analysis_output.py")
 
 To create your own custom nodes, add a new `.py` module to `src/tanuki/dsl/custom/` and re-export from `custom/__init__.py`. Custom nodes follow the same `Op = Callable[[IRNode], IRNode]` pattern and compose with `|`.
 
-## Transform Nodes (1 / 3)
+## Transform Nodes (2 / 3)
 
 - [x] Transform > Transform Geometry — `translate()`, `rotate()`, `scale_by()`
 - [ ] Transform > Transform Gizmo
-- [ ] Transform > Viewport Transform
+- [x] Transform > Viewport Transform — `viewport_transform(output)`
 
 > Note: Set Position (`place()` / `set_position()`) is in the Other category, not Transform.
 
@@ -370,9 +368,9 @@ To create your own custom nodes, add a new `.py` module to `src/tanuki/dsl/custo
 - [x] Attribute > Remove Named Attribute — `remove_named_attribute(name)`
 - [x] Attribute > Store Named Attribute — `store_named_attribute(name, value, data_type, domain)`
 
-## Material Nodes (3 / 4)
+## Material Nodes (4 / 4)
 
-- [ ] Material > Material Selection — field node (deferred, requires field IR)
+- [x] Material > Material Selection — `material_selection(material)`
 - [x] Material > Replace Material — `replace_material(old, new)`
 - [x] Material > Set Material — `set_material(material)`
 - [x] Material > Set Material Index — `set_material_index(material_index)`
@@ -383,15 +381,15 @@ To create your own custom nodes, add a new `.py` module to `src/tanuki/dsl/custo
 - [x] Volume > Points to Volume — `points_to_volume(density, voxel_size, voxel_amount, radius)`
 - [x] Volume > Volume Cube — `volume_cube(density, background, min, max, resolution_x, resolution_y, resolution_z)`
 
-## Texture Nodes (0 / 1)
+## Texture Nodes (1 / 1)
 
-- [ ] Texture > Image Texture
+- [x] Texture > Image Texture — `image_texture(image, interpolation, extension, output)`
 
 ## Color Nodes (1 / 1)
 
 - [x] Color > Set Grease Pencil Color — `set_grease_pencil_color(color, opacity)` *(also in Other)*
 
-## Other Nodes (50 / 97)
+## Other Nodes (72 / 97)
 
 ### Implemented
 
@@ -445,15 +443,83 @@ To create your own custom nodes, add a new `.py` module to `src/tanuki/dsl/custo
 - [x] Other > Domain Size — `domain_size()` *(also in Attribute)*
 - [x] Other > Attribute Statistic — `attribute_statistic(attribute, data_type, domain)` *(also in Attribute)*
 
-### Not Implemented (47 remaining)
+### Topology Queries
 
-Key nodes pending:
+- [x] Other > Corners of Edge — `corners_of_edge(edge_index, weights, sort_index, output)`
+- [x] Other > Corners of Face — `corners_of_face(face_index, weights, sort_index, output)`
+- [x] Other > Corners of Vertex — `corners_of_vertex(vertex_index, weights, sort_index, output)`
+- [x] Other > Edges of Corner — `edges_of_corner(corner_index, output)`
+- [x] Other > Edges of Vertex — `edges_of_vertex(vertex_index, weights, sort_index, output)`
+- [x] Other > Face of Corner — `face_of_corner(corner_index, output)`
+- [x] Other > Vertex of Corner — `vertex_of_corner(corner_index)`
+- [x] Other > Offset Corner in Face — `offset_corner_in_face(corner_index, offset)`
 
-- [ ] Other > Set Spline Cyclic *(implemented — see Curve Attributes)*
-- [ ] Other > Set Spline Resolution *(implemented — see Curve Attributes)*
-- [ ] Other > Spline Length *(also in Curve Info)*
-- [ ] Other > Spline Parameter *(also in Curve Info)*
-- [ ] ... (43 more — control flow, topology queries, grids, gizmos, etc.)
+### Selection / Grouping Fields
+
+- [x] Other > Edge Paths to Selection — `edge_paths_to_selection(start_vertices, next_vertex_index)`
+- [x] Other > Edges to Face Groups — `edges_to_face_groups(boundary_edges)`
+- [x] Other > Index of Nearest — `index_of_nearest(output)`
+- [x] Other > Self Object — `self_object()`
+- [x] Other > Is Viewport — `is_viewport()`
+
+### Information / Statistics
+
+- [x] Other > Camera Info — `camera_info(camera, output)`
+- [x] Other > Image Info — `image_info(image, frame, output)`
+- [x] Other > Field Average — `field_average(group_id, data_type, domain, output)`
+- [x] Other > Field Min & Max — `field_min_max(group_id, data_type, domain, output)`
+- [x] Other > Field Variance — `field_variance(group_id, data_type, domain, output)`
+
+### UV Operations
+
+- [x] Other > Pack UV Islands — `uv_pack_islands(margin, rotate)`
+- [x] Other > UV Unwrap — `uv_unwrap(margin, fill_holes, method)`
+
+### Tool Nodes
+
+- [x] Other > Selection (Tool) — `tool_selection(output)`
+- [x] Other > Face Set (Tool) — `tool_face_set(output)`
+- [x] Other > Mouse Position — `tool_mouse_position(output)`
+- [x] Other > 3D Cursor — `tool_3d_cursor(output)`
+- [x] Other > Active Element — `tool_active_element(domain, output)`
+
+### String / Utility
+
+- [x] Other > Join Strings — `join_strings(delimiter)`
+- [x] Other > Import Text — `import_text(path)`
+
+### Batch 20 — Field Processors, Grid, Gizmos, Warning
+
+- [x] Attribute > Blur Attribute — `blur_attribute(value, iterations, weight, data_type)`
+- [x] Other > Accumulate Field — `accumulate_field(value, group_id, data_type, domain, output)`
+- [x] Other > Evaluate at Index — `evaluate_at_index(value, index, domain, data_type)`
+- [x] Other > Evaluate on Domain — `evaluate_on_domain(value, domain, data_type)`
+- [x] Other > Grid Info — `grid_info(data_type, output)`
+- [x] Other > Sample Grid — `sample_grid(data_type, interpolation_mode)`
+- [x] Other > Sample Grid Index — `sample_grid_index(x, y, z, data_type)`
+- [x] Other > SDF Grid Boolean — `sdf_grid_boolean(operation)`
+- [x] Other > Warning — `warning_node(show, message, warning_type)`
+- [x] Other > Dial Gizmo — `gizmo_dial(value, position, up, screen_space, radius, color_id)`
+- [x] Other > Linear Gizmo — `gizmo_linear(value, position, direction, color_id, draw_style)`
+- [x] Transform > Transform Gizmo — `gizmo_transform(position, rotation, use_translation_x, ...)`
+- [x] Other > Distribute Points in Grid — `distribute_points_in_grid(density, seed, spacing, threshold, mode)`
+- [x] Other > Points to SDF Grid — `points_to_sdf_grid(radius, voxel_size)`
+- [x] Instances > Set Instance Transform — `set_instance_transform()`
+- [x] Mesh > Grid to Mesh — `grid_to_mesh(threshold, adaptivity)`
+
+### Not Implemented (15 remaining — control flow / dynamic sockets)
+
+These nodes require new IR patterns (zone pairs, dynamic sockets, bundles):
+
+- [ ] Closure Input / Output — zone pair, dynamic sockets
+- [ ] Repeat Input / Output — zone pair, dynamic sockets
+- [ ] Simulation Input / Output — zone pair, dynamic sockets
+- [ ] For Each Geometry Element Input / Output — zone pair
+- [ ] Bake — dynamic sockets
+- [ ] Capture Attribute — dynamic output sockets
+- [ ] Evaluate Closure — CLOSURE socket type
+- [ ] Combine Bundle / Separate Bundle — BUNDLE socket type
+- [ ] Index Switch / Menu Switch — dynamic indexed inputs
 
 ## Also Implemented (cross-cutting)
 
@@ -461,5 +527,7 @@ Key nodes pending:
 - [x] Pipe operator `|` for composability
 - [x] `IRGeometryOp` generic pattern with `extra_children` for multi-input ops
 - [x] `IRFieldInput` for per-element field nodes (Position, Normal, Edge Angle, etc.)
+- [x] `IRFieldInput.input_defaults` for field nodes with input socket defaults (Is Face Planar, Endpoint Selection, etc.)
+- [x] `("MATERIAL", name)` tuple convention for material references in field input properties and input_defaults
 - [x] `IRMathOp` for scalar (`ShaderNodeMath`) and vector (`ShaderNodeVectorMath`) math operations
 - [x] `dsl/custom/` framework for composing high-level nodes from DSL primitives

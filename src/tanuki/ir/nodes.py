@@ -195,11 +195,14 @@ class IRFieldInput(IRNode):
     ``field_type`` is the Blender node type string, e.g.
     ``"GeometryNodeInputPosition"``.
     ``output_socket`` selects which output to use (default first).
+    ``input_defaults`` sets default values on input sockets, e.g.
+    ``{"Threshold": 0.01}`` for *Is Face Planar*.
     """
 
     field_type: str = ""
     output_socket: str = ""
     properties: dict[str, object] = field(default_factory=dict)
+    input_defaults: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

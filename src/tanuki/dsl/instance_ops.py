@@ -92,3 +92,14 @@ def split_to_instances(group_id: int = 0) -> Op:
             label=f"{node.label} split_inst" if node.label else "split_to_instances",
         )
     return _apply
+
+
+def set_instance_transform() -> Op:
+    """Set the transform matrix of instances."""
+    def _apply(node: IRNode) -> IRGeometryOp:
+        return IRGeometryOp(
+            op_type="GeometryNodeSetInstanceTransform",
+            child=node,
+            label=f"{node.label} set_inst_xform" if node.label else "set_instance_transform",
+        )
+    return _apply

@@ -11,6 +11,7 @@ from .instancing import clones
 from .instance_ops import (
     realize_instances, rotate_instances, scale_instances, translate_instances,
     geometry_to_instance, instances_to_points, split_to_instances,
+    set_instance_transform,
 )
 from .mesh_ops import (
     extrude, subdivide, subdivide_surface, set_shade_smooth, merge_by_distance,
@@ -40,6 +41,7 @@ from .other_ops import (
     switch, get_named_grid, store_named_grid, set_grease_pencil_color, viewer,
     curve_length, domain_size, geometry_proximity, sample_nearest, sample_index, attribute_statistic,
     raycast, sample_nearest_surface, sample_uv_surface, mesh_to_sdf_grid, mesh_to_density_grid,
+    distribute_points_in_grid, grid_to_mesh, points_to_sdf_grid,
 )
 from .attribute_ops import store_named_attribute, remove_named_attribute
 from .importers import import_obj, import_stl, import_ply, import_csv, import_vdb, collection_info, object_info
@@ -48,6 +50,31 @@ from .field_nodes import (
     edge_vertices, edge_angle,
     vertex_neighbors, face_neighbors, face_area,
     edge_neighbors, mesh_island, named_attribute,
+    radius, is_edge_smooth, is_face_planar, is_face_smooth,
+    curve_tangent, curve_tilt, is_spline_cyclic, spline_resolution,
+    curve_handle_positions, endpoint_selection, handle_type_selection,
+    spline_length, spline_parameter,
+    curve_of_point, offset_point_in_curve, points_of_curve,
+    shortest_edge_paths,
+    instance_rotation, instance_scale,
+    material_index,
+    material_selection, input_material,
+    scene_time, active_camera, self_object, is_viewport,
+    instance_bounds, named_layer_selection, face_group_boundaries,
+    corners_of_edge, corners_of_face, corners_of_vertex,
+    edges_of_corner, edges_of_vertex,
+    face_of_corner, vertex_of_corner, offset_corner_in_face,
+    index_of_nearest, edge_paths_to_selection, edges_to_face_groups,
+    instance_transform, viewport_transform,
+    tool_selection, tool_face_set, tool_mouse_position, tool_3d_cursor, tool_active_element,
+    input_collection, input_image, input_object,
+    camera_info, image_texture, image_info,
+    field_average, field_min_max, field_variance,
+    uv_pack_islands, uv_unwrap,
+    join_strings, import_text,
+    blur_attribute, accumulate_field, evaluate_at_index, evaluate_on_domain,
+    grid_info, sample_grid, sample_grid_index, sdf_grid_boolean,
+    warning_node, gizmo_dial, gizmo_linear, gizmo_transform,
 )
 from .math_ops import (
     math_add, math_subtract, math_multiply, math_divide,

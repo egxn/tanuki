@@ -577,3 +577,57 @@ def mesh_to_density_grid(
             label=f"{node.label} density_grid" if node.label else "mesh_to_density_grid",
         )
     return _apply
+
+
+def distribute_points_in_grid(
+    density: float = 1.0,
+    seed: int = 0,
+    spacing: tuple[float, float, float] | None = None,
+    threshold: float = 0.1,
+    mode: str = "DENSITY_RANDOM",
+) -> Op:
+    """Distribute points inside a volume grid.
+
+    *mode*: ``"DENSITY_RANDOM"`` | ``"DENSITY_GRID"``
+    """
+    def _apply(node: IRNode) -> IRGeometryOp:
+        props: dict = {"density": density, "seed": seed, "threshold": threshold, "mode": mode}
+        if spacing is not None:
+            props["spacing"] = spacing
+        return IRGeometryOp(
+            op_type="GeometryNodeDistributePointsInGrid",
+            child=node,
+            properties=props,
+            label=f"{node.label} dist_grid" if node.label else "distribute_points_in_grid",
+        )
+    return _apply
+
+
+def grid_to_mesh(
+    threshold: float = 0.1,
+    adaptivity: float = 0.0,
+) -> Op:
+    """Convert a volume grid to a mesh."""
+    def _apply(node: IRNode) -> IRGeometryOp:
+        return IRGeometryOp(
+            op_type="GeometryNodeGridToMesh",
+            child=node,
+            properties={"threshold": threshold, "adaptivity": adaptivity},
+            label=f"{node.label} grid_to_mesh" if node.label else "grid_to_mesh",
+        )
+    return _apply
+
+
+def points_to_sdf_grid(
+    radius: float = 0.5,
+    voxel_size: float = 0.3,
+) -> Op:
+    """Convert points to a signed distance field grid."""
+    def _apply(node: IRNode) -> IRGeometryOp:
+        return IRGeometryOp(
+            op_type="GeometryNodePointsToSDFGrid",
+            child=node,
+            properties={"radius": radius, "voxel_size": voxel_size},
+            label=f"{node.label} pts_sdf" if node.label else "points_to_sdf_grid",
+        )
+    return _apply

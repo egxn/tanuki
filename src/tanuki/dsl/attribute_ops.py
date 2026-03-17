@@ -11,21 +11,27 @@ Op = Callable[[IRNode], IRNode]
 
 def store_named_attribute(
     name: str = "",
-    value: float = 0.0,
+    value: float | IRNode = 0.0,
     data_type: str = "FLOAT",
     domain: str = "POINT",
 ) -> Op:
     """Store a value into a named attribute on geometry elements."""
     def _apply(node: IRNode) -> IRGeometryOp:
+        extra: dict[str, IRNode] = {}
+        props: dict[str, object] = {
+            "name": name,
+            "data_type": data_type,
+            "domain": domain,
+        }
+        if isinstance(value, IRNode):
+            extra["Value"] = value
+        else:
+            props["value"] = value
         return IRGeometryOp(
             op_type="GeometryNodeStoreNamedAttribute",
             child=node,
-            properties={
-                "name": name,
-                "value": value,
-                "data_type": data_type,
-                "domain": domain,
-            },
+            properties=props,
+            extra_children=extra,
             label=f"{node.label} store_attr" if node.label else "store_named_attribute",
         )
     return _apply

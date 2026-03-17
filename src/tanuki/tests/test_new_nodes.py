@@ -2531,3 +2531,1475 @@ class TestBatch15Figures:
         ))
         _assert_valid_python(src)
         assert "GeometryNodeMeshToDensityGrid" in src
+
+
+# ===========================================================================
+# Batch 17 — Field Input Nodes (Curve Info, Mesh Info, Instance Info, Topology)
+# ===========================================================================
+
+
+from tanuki.dsl import (
+    radius,
+    is_edge_smooth,
+    is_face_planar,
+    is_face_smooth,
+    curve_tangent,
+    curve_tilt,
+    is_spline_cyclic,
+    spline_resolution,
+    curve_handle_positions,
+    endpoint_selection,
+    handle_type_selection,
+    spline_length,
+    spline_parameter,
+    curve_of_point,
+    offset_point_in_curve,
+    points_of_curve,
+    shortest_edge_paths,
+    instance_rotation,
+    instance_scale,
+    material_index,
+)
+from tanuki.ir.nodes import IRFieldInput
+
+
+class TestBatch17FieldInputIR:
+    """IR-level tests for new field input nodes."""
+
+    def test_radius(self):
+        n = radius()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputRadius"
+        assert n.output_socket == "Radius"
+
+    def test_is_edge_smooth(self):
+        n = is_edge_smooth()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputEdgeSmooth"
+        assert n.output_socket == "Smooth"
+
+    def test_is_face_planar_default(self):
+        n = is_face_planar()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputMeshFaceIsPlanar"
+        assert n.output_socket == "Planar"
+        assert n.input_defaults == {"Threshold": 0.01}
+
+    def test_is_face_planar_custom(self):
+        n = is_face_planar(threshold=0.05)
+        assert n.input_defaults == {"Threshold": 0.05}
+
+    def test_is_face_smooth(self):
+        n = is_face_smooth()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputShadeSmooth"
+        assert n.output_socket == "Smooth"
+
+    def test_curve_tangent(self):
+        n = curve_tangent()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputTangent"
+        assert n.output_socket == "Tangent"
+
+    def test_curve_tilt(self):
+        n = curve_tilt()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputCurveTilt"
+        assert n.output_socket == "Tilt"
+
+    def test_is_spline_cyclic(self):
+        n = is_spline_cyclic()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputSplineCyclic"
+        assert n.output_socket == "Cyclic"
+
+    def test_spline_resolution(self):
+        n = spline_resolution()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputSplineResolution"
+        assert n.output_socket == "Resolution"
+
+    def test_curve_handle_positions_default(self):
+        n = curve_handle_positions()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputCurveHandlePositions"
+        assert n.output_socket == "Left"
+        assert n.input_defaults == {"Relative": False}
+
+    def test_curve_handle_positions_right(self):
+        n = curve_handle_positions(relative=True, output="Right")
+        assert n.output_socket == "Right"
+        assert n.input_defaults == {"Relative": True}
+
+    def test_endpoint_selection(self):
+        n = endpoint_selection(start_size=2, end_size=3)
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeCurveEndpointSelection"
+        assert n.output_socket == "Selection"
+        assert n.input_defaults == {"Start Size": 2, "End Size": 3}
+
+    def test_handle_type_selection(self):
+        n = handle_type_selection(handle_type="AUTO", mode="RIGHT")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeCurveHandleTypeSelection"
+        assert n.output_socket == "Selection"
+        assert n.properties["handle_type"] == "AUTO"
+        assert n.properties["mode"] == {"RIGHT"}
+
+    def test_spline_length(self):
+        n = spline_length()
+        assert isinstance(n, IRFieldInput)
+        assert n.output_socket == "Length"
+        n2 = spline_length(output="Point Count")
+        assert n2.output_socket == "Point Count"
+
+    def test_spline_parameter(self):
+        n = spline_parameter()
+        assert n.output_socket == "Factor"
+        n2 = spline_parameter(output="Length")
+        assert n2.output_socket == "Length"
+        n3 = spline_parameter(output="Index")
+        assert n3.output_socket == "Index"
+
+    def test_curve_of_point(self):
+        n = curve_of_point(point_index=5, output="Index in Curve")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeCurveOfPoint"
+        assert n.output_socket == "Index in Curve"
+        assert n.input_defaults == {"Point Index": 5}
+
+    def test_offset_point_in_curve(self):
+        n = offset_point_in_curve(point_index=0, offset=2, output="Point Index")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeOffsetPointInCurve"
+        assert n.output_socket == "Point Index"
+        assert n.input_defaults == {"Point Index": 0, "Offset": 2}
+
+    def test_points_of_curve(self):
+        n = points_of_curve(curve_index=1, output="Total")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodePointsOfCurve"
+        assert n.output_socket == "Total"
+        assert n.input_defaults["Curve Index"] == 1
+
+    def test_shortest_edge_paths(self):
+        n = shortest_edge_paths(end_vertex=True, edge_cost=2.5, output="Total Cost")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputShortestEdgePaths"
+        assert n.output_socket == "Total Cost"
+        assert n.input_defaults == {"End Vertex": True, "Edge Cost": 2.5}
+
+    def test_instance_rotation(self):
+        n = instance_rotation()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputInstanceRotation"
+        assert n.output_socket == "Rotation"
+
+    def test_instance_scale(self):
+        n = instance_scale()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputInstanceScale"
+        assert n.output_socket == "Scale"
+
+    def test_material_index(self):
+        n = material_index()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputMaterialIndex"
+        assert n.output_socket == "Material Index"
+
+
+class TestBatch17Compile:
+    """Compiler tests for new field input nodes."""
+
+    def test_radius_compile(self):
+        src = _compile_model("rad", lambda: output(
+            cube(1, 1, 1) | store_named_attribute("r", radius())
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputRadius" in src
+
+    def test_is_edge_smooth_compile(self):
+        src = _compile_model("es", lambda: output(
+            cube(1, 1, 1) | store_named_attribute("smooth", is_edge_smooth(), data_type="BOOLEAN")
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputEdgeSmooth" in src
+
+    def test_is_face_planar_compile(self):
+        src = _compile_model("fp", lambda: output(
+            cube(1, 1, 1) | store_named_attribute("planar", is_face_planar(threshold=0.02), data_type="BOOLEAN")
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputMeshFaceIsPlanar" in src
+        assert "Threshold" in src
+
+    def test_is_face_smooth_compile(self):
+        src = _compile_model("fs", lambda: output(
+            cube(1, 1, 1) | store_named_attribute("smooth", is_face_smooth(), data_type="BOOLEAN")
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputShadeSmooth" in src
+
+    def test_curve_tangent_compile(self):
+        src = _compile_model("ct", lambda: output(
+            curve_circle() | store_named_attribute("tang", curve_tangent(), data_type="FLOAT_VECTOR")
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputTangent" in src
+
+    def test_curve_tilt_compile(self):
+        src = _compile_model("ctilt", lambda: output(
+            curve_circle() | store_named_attribute("tilt", curve_tilt())
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputCurveTilt" in src
+
+    def test_is_spline_cyclic_compile(self):
+        src = _compile_model("cyc", lambda: output(
+            curve_circle() | store_named_attribute("cyclic", is_spline_cyclic(), data_type="BOOLEAN")
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputSplineCyclic" in src
+
+    def test_spline_resolution_compile(self):
+        src = _compile_model("sres", lambda: output(
+            curve_circle() | store_named_attribute("res", spline_resolution(), data_type="INT")
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputSplineResolution" in src
+
+    def test_curve_handle_positions_compile(self):
+        src = _compile_model("chp", lambda: output(
+            curve_circle() | store_named_attribute(
+                "left_handle", curve_handle_positions(relative=True, output="Left"),
+                data_type="FLOAT_VECTOR",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputCurveHandlePositions" in src
+        assert "Relative" in src
+
+    def test_endpoint_selection_compile(self):
+        src = _compile_model("ep", lambda: output(
+            curve_circle() | store_named_attribute(
+                "ends", endpoint_selection(start_size=2, end_size=2),
+                data_type="BOOLEAN",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeCurveEndpointSelection" in src
+        assert "Start Size" in src
+
+    def test_handle_type_selection_compile(self):
+        src = _compile_model("hts", lambda: output(
+            curve_circle() | store_named_attribute(
+                "sel", handle_type_selection(handle_type="AUTO"),
+                data_type="BOOLEAN",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeCurveHandleTypeSelection" in src
+        assert "handle_type" in src
+
+    def test_spline_length_compile(self):
+        src = _compile_model("sl", lambda: output(
+            curve_circle() | store_named_attribute("len", spline_length())
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeSplineLength" in src
+
+    def test_spline_parameter_compile(self):
+        src = _compile_model("sp", lambda: output(
+            curve_circle() | store_named_attribute("fac", spline_parameter())
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeSplineParameter" in src
+
+    def test_curve_of_point_compile(self):
+        src = _compile_model("cop", lambda: output(
+            curve_circle() | store_named_attribute("ci", curve_of_point(), data_type="INT")
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeCurveOfPoint" in src
+
+    def test_offset_point_in_curve_compile(self):
+        src = _compile_model("opic", lambda: output(
+            curve_circle() | store_named_attribute(
+                "opi", offset_point_in_curve(offset=1, output="Point Index"),
+                data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeOffsetPointInCurve" in src
+        assert "Offset" in src
+
+    def test_points_of_curve_compile(self):
+        src = _compile_model("poc", lambda: output(
+            curve_circle() | store_named_attribute(
+                "poc", points_of_curve(curve_index=0),
+                data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodePointsOfCurve" in src
+
+    def test_shortest_edge_paths_compile(self):
+        src = _compile_model("sep_b17", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "cost", shortest_edge_paths(end_vertex=True, edge_cost=1.5, output="Total Cost"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputShortestEdgePaths" in src
+        assert "Edge Cost" in src
+
+    def test_instance_rotation_compile(self):
+        src = _compile_model("ir_b17", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "rot", instance_rotation(), data_type="FLOAT_VECTOR",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputInstanceRotation" in src
+
+    def test_instance_scale_compile(self):
+        src = _compile_model("is_b17", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "scl", instance_scale(), data_type="FLOAT_VECTOR",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputInstanceScale" in src
+
+    def test_material_index_compile(self):
+        src = _compile_model("mi", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "mat_idx", material_index(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputMaterialIndex" in src
+
+    def test_input_defaults_in_output(self):
+        """Verify that input_defaults generate default_value assignments."""
+        src = _compile_model("id_test", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "planar", is_face_planar(threshold=0.05), data_type="BOOLEAN",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "default_value = 0.05" in src
+
+
+# ===========================================================================
+# Batch 18 — Topology, Scene, Instance, Material, Selection field nodes
+# ===========================================================================
+
+
+from tanuki.dsl import (
+    material_selection,
+    input_material,
+    scene_time,
+    active_camera,
+    self_object,
+    is_viewport,
+    instance_bounds,
+    named_layer_selection,
+    face_group_boundaries,
+    corners_of_edge,
+    corners_of_face,
+    corners_of_vertex,
+    edges_of_corner,
+    edges_of_vertex,
+    face_of_corner,
+    vertex_of_corner,
+    offset_corner_in_face,
+    index_of_nearest,
+    edge_paths_to_selection,
+    edges_to_face_groups,
+)
+
+
+class TestBatch18FieldInputIR:
+    """IR-level tests for batch 18 field input nodes."""
+
+    def test_scene_time_default(self):
+        n = scene_time()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputSceneTime"
+        assert n.output_socket == "Seconds"
+
+    def test_scene_time_frame(self):
+        n = scene_time(output="Frame")
+        assert n.output_socket == "Frame"
+
+    def test_active_camera(self):
+        n = active_camera()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputActiveCamera"
+        assert n.output_socket == "Active Camera"
+
+    def test_self_object(self):
+        n = self_object()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeSelfObject"
+        assert n.output_socket == "Self Object"
+
+    def test_is_viewport(self):
+        n = is_viewport()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeIsViewport"
+        assert n.output_socket == "Is Viewport"
+
+    def test_instance_bounds_default(self):
+        n = instance_bounds()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputInstanceBounds"
+        assert n.output_socket == "Min"
+        assert n.input_defaults == {"Use Radius": True}
+
+    def test_instance_bounds_max(self):
+        n = instance_bounds(use_radius=False, output="Max")
+        assert n.output_socket == "Max"
+        assert n.input_defaults == {"Use Radius": False}
+
+    def test_named_layer_selection(self):
+        n = named_layer_selection(name="Layer_1")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputNamedLayerSelection"
+        assert n.input_defaults == {"Name": "Layer_1"}
+
+    def test_face_group_boundaries(self):
+        n = face_group_boundaries(face_group_id=5)
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeMeshFaceSetBoundaries"
+        assert n.output_socket == "Boundary Edges"
+        assert n.input_defaults == {"Face Set": 5}
+
+    def test_material_selection(self):
+        n = material_selection(material="Wood")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeMaterialSelection"
+        assert n.output_socket == "Selection"
+        assert n.input_defaults == {"Material": ("MATERIAL", "Wood")}
+
+    def test_input_material(self):
+        n = input_material(material="Metal")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInputMaterial"
+        assert n.properties == {"material": ("MATERIAL", "Metal")}
+
+    def test_corners_of_edge(self):
+        n = corners_of_edge(edge_index=3, output="Total")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeCornersOfEdge"
+        assert n.output_socket == "Total"
+        assert n.input_defaults["Edge Index"] == 3
+
+    def test_corners_of_face(self):
+        n = corners_of_face(face_index=1, output="Total")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeCornersOfFace"
+        assert n.output_socket == "Total"
+        assert n.input_defaults["Face Index"] == 1
+
+    def test_corners_of_vertex(self):
+        n = corners_of_vertex(vertex_index=2, weights=1.0)
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeCornersOfVertex"
+        assert n.input_defaults["Vertex Index"] == 2
+        assert n.input_defaults["Weights"] == 1.0
+
+    def test_edges_of_corner(self):
+        n = edges_of_corner(corner_index=0, output="Previous Edge Index")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeEdgesOfCorner"
+        assert n.output_socket == "Previous Edge Index"
+
+    def test_edges_of_vertex(self):
+        n = edges_of_vertex(vertex_index=4, output="Total")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeEdgesOfVertex"
+        assert n.output_socket == "Total"
+
+    def test_face_of_corner(self):
+        n = face_of_corner(corner_index=1, output="Index in Face")
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeFaceOfCorner"
+        assert n.output_socket == "Index in Face"
+
+    def test_vertex_of_corner(self):
+        n = vertex_of_corner(corner_index=3)
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeVertexOfCorner"
+        assert n.output_socket == "Vertex Index"
+        assert n.input_defaults == {"Corner Index": 3}
+
+    def test_offset_corner_in_face(self):
+        n = offset_corner_in_face(corner_index=0, offset=2)
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeOffsetCornerInFace"
+        assert n.input_defaults == {"Corner Index": 0, "Offset": 2}
+
+    def test_index_of_nearest(self):
+        n = index_of_nearest()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeIndexOfNearest"
+        assert n.output_socket == "Index"
+
+    def test_index_of_nearest_has_neighbor(self):
+        n = index_of_nearest(output="Has Neighbor")
+        assert n.output_socket == "Has Neighbor"
+
+    def test_edge_paths_to_selection(self):
+        n = edge_paths_to_selection(start_vertices=False, next_vertex_index=5)
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeEdgePathsToSelection"
+        assert n.output_socket == "Selection"
+        assert n.input_defaults == {"Start Vertices": False, "Next Vertex Index": 5}
+
+    def test_edges_to_face_groups(self):
+        n = edges_to_face_groups(boundary_edges=False)
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeEdgesToFaceGroups"
+        assert n.output_socket == "Face Group ID"
+        assert n.input_defaults == {"Boundary Edges": False}
+
+
+class TestBatch18Compile:
+    """Compiler tests for batch 18 field input nodes."""
+
+    def test_scene_time_compile(self):
+        src = _compile_model("st", lambda: output(
+            cube(1, 1, 1) | store_named_attribute("t", scene_time())
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputSceneTime" in src
+
+    def test_active_camera_compile(self):
+        src = _compile_model("ac", lambda: output(
+            cube(1, 1, 1) | store_named_attribute("cam", active_camera())
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputActiveCamera" in src
+
+    def test_self_object_compile(self):
+        src = _compile_model("so", lambda: output(
+            cube(1, 1, 1) | store_named_attribute("self", self_object())
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeSelfObject" in src
+
+    def test_is_viewport_compile(self):
+        src = _compile_model("vp", lambda: output(
+            cube(1, 1, 1) | store_named_attribute("vp", is_viewport(), data_type="BOOLEAN")
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeIsViewport" in src
+
+    def test_instance_bounds_compile(self):
+        src = _compile_model("ib", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "bmin", instance_bounds(output="Min"), data_type="FLOAT_VECTOR",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputInstanceBounds" in src
+
+    def test_named_layer_selection_compile(self):
+        src = _compile_model("nls", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "sel", named_layer_selection(name="Outline"), data_type="BOOLEAN",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputNamedLayerSelection" in src
+        assert "Outline" in src
+
+    def test_face_group_boundaries_compile(self):
+        src = _compile_model("fgb", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "bnd", face_group_boundaries(face_group_id=1), data_type="BOOLEAN",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeMeshFaceSetBoundaries" in src
+
+    def test_material_selection_compile(self):
+        src = _compile_model("ms", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "sel", material_selection(material="Wood"), data_type="BOOLEAN",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeMaterialSelection" in src
+        assert "bpy.data.materials.get" in src
+        assert "'Wood'" in src
+
+    def test_input_material_compile(self):
+        src = _compile_model("im", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "mat", input_material(material="Metal"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputMaterial" in src
+        assert "bpy.data.materials.get" in src
+        assert "'Metal'" in src
+
+    def test_corners_of_edge_compile(self):
+        src = _compile_model("coe", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "ci", corners_of_edge(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeCornersOfEdge" in src
+
+    def test_corners_of_face_compile(self):
+        src = _compile_model("cof", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "ci", corners_of_face(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeCornersOfFace" in src
+
+    def test_corners_of_vertex_compile(self):
+        src = _compile_model("cov", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "ci", corners_of_vertex(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeCornersOfVertex" in src
+
+    def test_edges_of_corner_compile(self):
+        src = _compile_model("eoc", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "ei", edges_of_corner(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeEdgesOfCorner" in src
+
+    def test_edges_of_vertex_compile(self):
+        src = _compile_model("eov", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "ei", edges_of_vertex(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeEdgesOfVertex" in src
+
+    def test_face_of_corner_compile(self):
+        src = _compile_model("foc", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "fi", face_of_corner(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeFaceOfCorner" in src
+
+    def test_vertex_of_corner_compile(self):
+        src = _compile_model("voc", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "vi", vertex_of_corner(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeVertexOfCorner" in src
+
+    def test_offset_corner_in_face_compile(self):
+        src = _compile_model("ocif", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "ci", offset_corner_in_face(offset=1), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeOffsetCornerInFace" in src
+
+    def test_index_of_nearest_compile(self):
+        src = _compile_model("ion", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "ni", index_of_nearest(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeIndexOfNearest" in src
+
+    def test_edge_paths_to_selection_compile(self):
+        src = _compile_model("epts", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "sel", edge_paths_to_selection(), data_type="BOOLEAN",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeEdgePathsToSelection" in src
+
+    def test_edges_to_face_groups_compile(self):
+        src = _compile_model("etfg", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "gid", edges_to_face_groups(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeEdgesToFaceGroups" in src
+
+
+# ===========================================================================
+# Batch 19 — Instance, Viewport, Tool, Reference, Stats, UV, Utility nodes
+# ===========================================================================
+
+
+from tanuki.dsl import (
+    instance_transform,
+    viewport_transform,
+    tool_selection,
+    tool_face_set,
+    tool_mouse_position,
+    tool_3d_cursor,
+    tool_active_element,
+    input_collection,
+    input_image,
+    input_object,
+    camera_info,
+    image_texture,
+    image_info,
+    field_average,
+    field_min_max,
+    field_variance,
+    uv_pack_islands,
+    uv_unwrap,
+    join_strings,
+    import_text,
+)
+
+
+class TestBatch19FieldInputIR:
+    """IR-level tests for batch 19 field input nodes."""
+
+    # --- Simple field inputs (no inputs) ---
+
+    def test_instance_transform(self):
+        n = instance_transform()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeInstanceTransform"
+        assert n.output_socket == "Transform"
+
+    def test_viewport_transform_default(self):
+        n = viewport_transform()
+        assert n.field_type == "GeometryNodeViewportTransform"
+        assert n.output_socket == "Projection"
+
+    def test_viewport_transform_view(self):
+        n = viewport_transform(output="View")
+        assert n.output_socket == "View"
+
+    def test_tool_selection_default(self):
+        n = tool_selection()
+        assert n.field_type == "GeometryNodeToolSelection"
+        assert n.output_socket == "Boolean"
+
+    def test_tool_selection_float(self):
+        n = tool_selection(output="Float")
+        assert n.output_socket == "Float"
+
+    def test_tool_face_set(self):
+        n = tool_face_set()
+        assert n.field_type == "GeometryNodeToolFaceSet"
+        assert n.output_socket == "Face Set"
+
+    def test_tool_face_set_exists(self):
+        n = tool_face_set(output="Exists")
+        assert n.output_socket == "Exists"
+
+    def test_tool_mouse_position(self):
+        n = tool_mouse_position()
+        assert n.field_type == "GeometryNodeToolMousePosition"
+        assert n.output_socket == "Mouse X"
+
+    def test_tool_mouse_position_region(self):
+        n = tool_mouse_position(output="Region Width")
+        assert n.output_socket == "Region Width"
+
+    def test_tool_3d_cursor(self):
+        n = tool_3d_cursor()
+        assert n.field_type == "GeometryNodeTool3DCursor"
+        assert n.output_socket == "Location"
+
+    def test_tool_3d_cursor_rotation(self):
+        n = tool_3d_cursor(output="Rotation")
+        assert n.output_socket == "Rotation"
+
+    def test_tool_active_element(self):
+        n = tool_active_element(domain="FACE", output="Exists")
+        assert n.field_type == "GeometryNodeToolActiveElement"
+        assert n.output_socket == "Exists"
+        assert n.properties == {"domain": "FACE"}
+
+    # --- Reference input nodes ---
+
+    def test_input_collection(self):
+        n = input_collection(collection="MyCol")
+        assert n.field_type == "GeometryNodeInputCollection"
+        assert n.output_socket == "Collection"
+        assert n.properties == {"collection": ("COLLECTION", "MyCol")}
+
+    def test_input_collection_empty(self):
+        n = input_collection()
+        assert n.properties == {}
+
+    def test_input_image(self):
+        n = input_image(image="tex.png")
+        assert n.field_type == "GeometryNodeInputImage"
+        assert n.properties == {"image": ("IMAGE", "tex.png")}
+
+    def test_input_object(self):
+        n = input_object(object_name="Cube")
+        assert n.field_type == "GeometryNodeInputObject"
+        assert n.properties == {"object": ("OBJECT", "Cube")}
+
+    # --- Nodes with inputs + properties ---
+
+    def test_camera_info_default(self):
+        n = camera_info()
+        assert n.field_type == "GeometryNodeCameraInfo"
+        assert n.output_socket == "Focal Length"
+        assert n.input_defaults == {}
+
+    def test_camera_info_with_camera(self):
+        n = camera_info(camera="Camera", output="Sensor")
+        assert n.output_socket == "Sensor"
+        assert n.input_defaults == {"Camera": ("OBJECT", "Camera")}
+
+    def test_image_texture_default(self):
+        n = image_texture()
+        assert n.field_type == "GeometryNodeImageTexture"
+        assert n.output_socket == "Color"
+        assert n.properties == {"interpolation": "Linear", "extension": "REPEAT"}
+
+    def test_image_texture_with_image(self):
+        n = image_texture(image="photo.png", output="Alpha")
+        assert n.output_socket == "Alpha"
+        assert n.input_defaults == {"Image": ("IMAGE", "photo.png")}
+
+    def test_image_info(self):
+        n = image_info(image="tex.png", frame=5, output="Height")
+        assert n.field_type == "GeometryNodeImageInfo"
+        assert n.output_socket == "Height"
+        assert n.input_defaults["Frame"] == 5
+        assert n.input_defaults["Image"] == ("IMAGE", "tex.png")
+
+    # --- Field statistics ---
+
+    def test_field_average(self):
+        n = field_average(group_id=1, data_type="INT", domain="FACE", output="Median")
+        assert n.field_type == "GeometryNodeFieldAverage"
+        assert n.output_socket == "Median"
+        assert n.properties == {"data_type": "INT", "domain": "FACE"}
+        assert n.input_defaults == {"Group ID": 1}
+
+    def test_field_min_max(self):
+        n = field_min_max(output="Max")
+        assert n.field_type == "GeometryNodeFieldMinAndMax"
+        assert n.output_socket == "Max"
+
+    def test_field_variance(self):
+        n = field_variance(output="Variance")
+        assert n.field_type == "GeometryNodeFieldVariance"
+        assert n.output_socket == "Variance"
+
+    # --- UV ---
+
+    def test_uv_pack_islands(self):
+        n = uv_pack_islands(margin=0.01, rotate=False)
+        assert n.field_type == "GeometryNodeUVPackIslands"
+        assert n.output_socket == "UV"
+        assert n.input_defaults == {"Margin": 0.01, "Rotate": False}
+
+    def test_uv_unwrap(self):
+        n = uv_unwrap(method="CONFORMAL", margin=0.005)
+        assert n.field_type == "GeometryNodeUVUnwrap"
+        assert n.properties == {"method": "CONFORMAL"}
+        assert n.input_defaults["Margin"] == 0.005
+
+    # --- String / utility ---
+
+    def test_join_strings(self):
+        n = join_strings(delimiter=", ")
+        assert n.field_type == "GeometryNodeStringJoin"
+        assert n.output_socket == "String"
+        assert n.input_defaults == {"Delimiter": ", "}
+
+    def test_import_text(self):
+        n = import_text(path="/tmp/data.txt")
+        assert n.field_type == "GeometryNodeImportText"
+        assert n.input_defaults == {"Path": "/tmp/data.txt"}
+
+
+class TestBatch19Compile:
+    """Compiler tests for batch 19 field input nodes."""
+
+    def test_instance_transform_compile(self):
+        src = _compile_model("it", lambda: output(
+            cube(1, 1, 1) | store_named_attribute("t", instance_transform())
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInstanceTransform" in src
+
+    def test_viewport_transform_compile(self):
+        src = _compile_model("vt", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "proj", viewport_transform(), data_type="FLOAT_VECTOR",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeViewportTransform" in src
+
+    def test_tool_selection_compile(self):
+        src = _compile_model("ts", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "sel", tool_selection(), data_type="BOOLEAN",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeToolSelection" in src
+
+    def test_tool_face_set_compile(self):
+        src = _compile_model("tfs", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "fs", tool_face_set(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeToolFaceSet" in src
+
+    def test_tool_mouse_position_compile(self):
+        src = _compile_model("tmp", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "mx", tool_mouse_position(), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeToolMousePosition" in src
+
+    def test_tool_3d_cursor_compile(self):
+        src = _compile_model("tc", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "loc", tool_3d_cursor(), data_type="FLOAT_VECTOR",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeTool3DCursor" in src
+
+    def test_tool_active_element_compile(self):
+        src = _compile_model("tae", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "idx", tool_active_element(domain="EDGE"), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeToolActiveElement" in src
+        assert '"EDGE"' in src
+
+    def test_input_collection_compile(self):
+        src = _compile_model("ic", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "col", input_collection(collection="Env"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputCollection" in src
+        assert "bpy.data.collections.get" in src
+        assert "'Env'" in src
+
+    def test_input_image_compile(self):
+        src = _compile_model("ii", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "img", input_image(image="photo.png"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputImage" in src
+        assert "bpy.data.images.get" in src
+        assert "'photo.png'" in src
+
+    def test_input_object_compile(self):
+        src = _compile_model("io", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "obj", input_object(object_name="Empty"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeInputObject" in src
+        assert "bpy.data.objects.get" in src
+        assert "'Empty'" in src
+
+    def test_camera_info_compile(self):
+        src = _compile_model("ci", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "fl", camera_info(camera="Camera"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeCameraInfo" in src
+        assert "bpy.data.objects.get" in src
+
+    def test_image_texture_compile(self):
+        src = _compile_model("it2", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "col", image_texture(image="tex.png"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeImageTexture" in src
+        assert "bpy.data.images.get" in src
+
+    def test_image_info_compile(self):
+        src = _compile_model("imi", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "w", image_info(image="tex.png"), data_type="INT",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeImageInfo" in src
+        assert "bpy.data.images.get" in src
+
+    def test_field_average_compile(self):
+        src = _compile_model("fa", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "avg", field_average(),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeFieldAverage" in src
+
+    def test_field_min_max_compile(self):
+        src = _compile_model("fmm", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "mn", field_min_max(),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeFieldMinAndMax" in src
+
+    def test_field_variance_compile(self):
+        src = _compile_model("fv", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "sd", field_variance(),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeFieldVariance" in src
+
+    def test_uv_pack_islands_compile(self):
+        src = _compile_model("upi", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "uv", uv_pack_islands(), data_type="FLOAT_VECTOR",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeUVPackIslands" in src
+
+    def test_uv_unwrap_compile(self):
+        src = _compile_model("uu", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "uv", uv_unwrap(method="CONFORMAL"), data_type="FLOAT_VECTOR",
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeUVUnwrap" in src
+        assert '"CONFORMAL"' in src
+
+    def test_join_strings_compile(self):
+        src = _compile_model("js", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "s", join_strings(delimiter="-"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeStringJoin" in src
+
+    def test_import_text_compile(self):
+        src = _compile_model("imt", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "txt", import_text(path="/tmp/data.txt"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeImportText" in src
+        assert "/tmp/data.txt" in src
+
+
+# ===========================================================================
+# Batch 20 — field processors, grid ops, gizmos, warning, set_instance_transform
+# ===========================================================================
+
+from tanuki.dsl import (
+    blur_attribute,
+    accumulate_field,
+    evaluate_at_index,
+    evaluate_on_domain,
+    grid_info,
+    sample_grid,
+    sample_grid_index,
+    sdf_grid_boolean,
+    warning_node,
+    gizmo_dial,
+    gizmo_linear,
+    gizmo_transform,
+    distribute_points_in_grid,
+    grid_to_mesh,
+    points_to_sdf_grid,
+    set_instance_transform,
+)
+
+
+class TestBatch20FieldInputIR:
+    """IR-level tests for batch 20 field input nodes."""
+
+    def test_blur_attribute_default(self):
+        n = blur_attribute()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeBlurAttribute"
+        assert n.output_socket == "Value"
+        assert n.input_defaults["Iterations"] == 1
+
+    def test_blur_attribute_custom(self):
+        n = blur_attribute(value=1.0, iterations=5, weight=0.5, data_type="FLOAT_VECTOR")
+        assert n.properties["data_type"] == "FLOAT_VECTOR"
+        assert n.input_defaults["Value"] == 1.0
+        assert n.input_defaults["Iterations"] == 5
+        assert n.input_defaults["Weight"] == 0.5
+
+    def test_accumulate_field_default(self):
+        n = accumulate_field()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeAccumulateField"
+        assert n.output_socket == "Leading"
+
+    def test_accumulate_field_trailing(self):
+        n = accumulate_field(output="Trailing", domain="FACE")
+        assert n.output_socket == "Trailing"
+        assert n.properties["domain"] == "FACE"
+
+    def test_accumulate_field_total(self):
+        n = accumulate_field(output="Total", data_type="INT")
+        assert n.output_socket == "Total"
+        assert n.properties["data_type"] == "INT"
+
+    def test_evaluate_at_index_default(self):
+        n = evaluate_at_index()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeFieldAtIndex"
+        assert n.output_socket == "Value"
+        assert n.input_defaults["Index"] == 0
+
+    def test_evaluate_at_index_custom(self):
+        n = evaluate_at_index(value=2.5, index=10, domain="FACE", data_type="FLOAT_VECTOR")
+        assert n.properties["domain"] == "FACE"
+        assert n.properties["data_type"] == "FLOAT_VECTOR"
+        assert n.input_defaults["Index"] == 10
+
+    def test_evaluate_on_domain_default(self):
+        n = evaluate_on_domain()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeFieldOnDomain"
+        assert n.output_socket == "Value"
+
+    def test_evaluate_on_domain_custom(self):
+        n = evaluate_on_domain(domain="EDGE", data_type="INT")
+        assert n.properties["domain"] == "EDGE"
+        assert n.properties["data_type"] == "INT"
+
+    def test_grid_info_default(self):
+        n = grid_info()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeGridInfo"
+        assert n.output_socket == "Transform"
+
+    def test_grid_info_background(self):
+        n = grid_info(output="Background Value")
+        assert n.output_socket == "Background Value"
+
+    def test_sample_grid_default(self):
+        n = sample_grid()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeSampleGrid"
+        assert n.properties["interpolation_mode"] == "TRILINEAR"
+
+    def test_sample_grid_nearest(self):
+        n = sample_grid(interpolation_mode="NEAREST", data_type="INT")
+        assert n.properties["interpolation_mode"] == "NEAREST"
+        assert n.properties["data_type"] == "INT"
+
+    def test_sample_grid_index_default(self):
+        n = sample_grid_index()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeSampleGridIndex"
+        assert n.input_defaults["X"] == 0
+
+    def test_sample_grid_index_custom(self):
+        n = sample_grid_index(x=3, y=4, z=5, data_type="BOOLEAN")
+        assert n.input_defaults["X"] == 3
+        assert n.input_defaults["Y"] == 4
+        assert n.input_defaults["Z"] == 5
+
+    def test_sdf_grid_boolean_default(self):
+        n = sdf_grid_boolean()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeSDFGridBoolean"
+        assert n.properties["operation"] == "DIFFERENCE"
+
+    def test_sdf_grid_boolean_union(self):
+        n = sdf_grid_boolean(operation="UNION")
+        assert n.properties["operation"] == "UNION"
+
+    def test_warning_node_default(self):
+        n = warning_node()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeWarning"
+        assert n.properties["warning_type"] == "ERROR"
+        assert n.input_defaults["Show"] is True
+
+    def test_warning_node_custom(self):
+        n = warning_node(show=False, message="test", warning_type="INFO")
+        assert n.properties["warning_type"] == "INFO"
+        assert n.input_defaults["Message"] == "test"
+        assert n.input_defaults["Show"] is False
+
+    def test_gizmo_dial_default(self):
+        n = gizmo_dial()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeGizmoDial"
+        assert n.output_socket == "Transform"
+        assert n.properties["color_id"] == "PRIMARY"
+
+    def test_gizmo_dial_custom(self):
+        n = gizmo_dial(color_id="X", radius=2.0, value=1.5)
+        assert n.properties["color_id"] == "X"
+        assert n.input_defaults["Radius"] == 2.0
+        assert n.input_defaults["Value"] == 1.5
+
+    def test_gizmo_linear_default(self):
+        n = gizmo_linear()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeGizmoLinear"
+        assert n.properties["draw_style"] == "ARROW"
+
+    def test_gizmo_linear_custom(self):
+        n = gizmo_linear(color_id="Y", draw_style="CROSS")
+        assert n.properties["color_id"] == "Y"
+        assert n.properties["draw_style"] == "CROSS"
+
+    def test_gizmo_transform_default(self):
+        n = gizmo_transform()
+        assert isinstance(n, IRFieldInput)
+        assert n.field_type == "GeometryNodeGizmoTransform"
+        assert n.output_socket == "Transform"
+        assert n.properties["use_translation_x"] is False
+
+    def test_gizmo_transform_custom(self):
+        n = gizmo_transform(
+            use_translation_x=True, use_translation_y=True, use_translation_z=True,
+            use_rotation_x=True,
+        )
+        assert n.properties["use_translation_x"] is True
+        assert n.properties["use_rotation_x"] is True
+        assert n.properties["use_scale_x"] is False
+
+
+class TestBatch20GeometryOpIR:
+    """IR-level tests for batch 20 geometry op nodes."""
+
+    def test_distribute_points_in_grid(self):
+        op = distribute_points_in_grid()
+        node = op(cube(1, 1, 1))
+        assert isinstance(node, IRGeometryOp)
+        assert node.op_type == "GeometryNodeDistributePointsInGrid"
+        assert node.properties["mode"] == "DENSITY_RANDOM"
+
+    def test_distribute_points_in_grid_custom(self):
+        op = distribute_points_in_grid(density=2.0, seed=42, mode="DENSITY_GRID")
+        node = op(cube(1, 1, 1))
+        assert node.properties["density"] == 2.0
+        assert node.properties["seed"] == 42
+        assert node.properties["mode"] == "DENSITY_GRID"
+
+    def test_grid_to_mesh(self):
+        op = grid_to_mesh()
+        node = op(cube(1, 1, 1))
+        assert isinstance(node, IRGeometryOp)
+        assert node.op_type == "GeometryNodeGridToMesh"
+        assert node.properties["threshold"] == 0.1
+
+    def test_grid_to_mesh_custom(self):
+        op = grid_to_mesh(threshold=0.5, adaptivity=1.0)
+        node = op(cube(1, 1, 1))
+        assert node.properties["threshold"] == 0.5
+        assert node.properties["adaptivity"] == 1.0
+
+    def test_points_to_sdf_grid(self):
+        op = points_to_sdf_grid()
+        node = op(cube(1, 1, 1))
+        assert isinstance(node, IRGeometryOp)
+        assert node.op_type == "GeometryNodePointsToSDFGrid"
+        assert node.properties["radius"] == 0.5
+
+    def test_points_to_sdf_grid_custom(self):
+        op = points_to_sdf_grid(radius=1.0, voxel_size=0.5)
+        node = op(cube(1, 1, 1))
+        assert node.properties["radius"] == 1.0
+        assert node.properties["voxel_size"] == 0.5
+
+    def test_set_instance_transform(self):
+        op = set_instance_transform()
+        node = op(cube(1, 1, 1))
+        assert isinstance(node, IRGeometryOp)
+        assert node.op_type == "GeometryNodeSetInstanceTransform"
+
+
+class TestBatch20Compile:
+    """Compilation tests for batch 20 nodes."""
+
+    def test_blur_attribute_compile(self):
+        src = _compile_model("ba", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "blurred", blur_attribute(iterations=3),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeBlurAttribute" in src
+
+    def test_accumulate_field_compile(self):
+        src = _compile_model("af", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "acc", accumulate_field(domain="FACE", output="Total"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeAccumulateField" in src
+        assert '"FACE"' in src
+
+    def test_evaluate_at_index_compile(self):
+        src = _compile_model("eai", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "val", evaluate_at_index(index=5),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeFieldAtIndex" in src
+
+    def test_evaluate_on_domain_compile(self):
+        src = _compile_model("eod", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "val", evaluate_on_domain(domain="EDGE"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeFieldOnDomain" in src
+        assert '"EDGE"' in src
+
+    def test_grid_info_compile(self):
+        src = _compile_model("gi", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "info", grid_info(),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeGridInfo" in src
+
+    def test_sample_grid_compile(self):
+        src = _compile_model("sg", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "val", sample_grid(interpolation_mode="NEAREST"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeSampleGrid" in src
+        assert '"NEAREST"' in src
+
+    def test_sample_grid_index_compile(self):
+        src = _compile_model("sgi", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "val", sample_grid_index(x=1, y=2, z=3),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeSampleGridIndex" in src
+
+    def test_sdf_grid_boolean_compile(self):
+        src = _compile_model("sgb", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "grid", sdf_grid_boolean(operation="UNION"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeSDFGridBoolean" in src
+        assert '"UNION"' in src
+
+    def test_warning_node_compile(self):
+        src = _compile_model("w", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "warn", warning_node(message="oops", warning_type="WARNING"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeWarning" in src
+        assert '"WARNING"' in src
+
+    def test_gizmo_dial_compile(self):
+        src = _compile_model("gd", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "g", gizmo_dial(color_id="X"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeGizmoDial" in src
+
+    def test_gizmo_linear_compile(self):
+        src = _compile_model("gl", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "g", gizmo_linear(draw_style="CROSS"),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeGizmoLinear" in src
+
+    def test_gizmo_transform_compile(self):
+        src = _compile_model("gt", lambda: output(
+            cube(1, 1, 1) | store_named_attribute(
+                "g", gizmo_transform(use_translation_x=True),
+            )
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeGizmoTransform" in src
+
+    def test_distribute_points_in_grid_compile(self):
+        src = _compile_model("dpig", lambda: output(
+            cube(1, 1, 1) | mesh_to_sdf_grid() | distribute_points_in_grid(density=2.0)
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeDistributePointsInGrid" in src
+
+    def test_grid_to_mesh_compile(self):
+        src = _compile_model("gtm", lambda: output(
+            cube(1, 1, 1) | mesh_to_sdf_grid() | grid_to_mesh(threshold=0.2)
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeGridToMesh" in src
+
+    def test_points_to_sdf_grid_compile(self):
+        src = _compile_model("psdf", lambda: output(
+            cube(1, 1, 1) | mesh_to_points() | points_to_sdf_grid(radius=0.5)
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodePointsToSDFGrid" in src
+
+    def test_set_instance_transform_compile(self):
+        src = _compile_model("sit", lambda: output(
+            cube(1, 1, 1) | geometry_to_instance() | set_instance_transform()
+        ))
+        _assert_valid_python(src)
+        assert "GeometryNodeSetInstanceTransform" in src

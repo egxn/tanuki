@@ -200,6 +200,11 @@ _GEOM_OP_INPUT: dict[str, str] = {
     "GeometryNodeSampleUVSurface": "Mesh",
     "GeometryNodeMeshToSDFGrid": "Mesh",
     "GeometryNodeMeshToDensityGrid": "Mesh",
+    # Batch 20 — grid ops, instance transform
+    "GeometryNodeDistributePointsInGrid": "Grid",
+    "GeometryNodeGridToMesh": "Grid",
+    "GeometryNodePointsToSDFGrid": "Points",
+    "GeometryNodeSetInstanceTransform": "Instances",
 }
 
 # Geometry op → which output socket carries the result geometry
@@ -301,6 +306,11 @@ _GEOM_OP_OUTPUT: dict[str, str] = {
     "GeometryNodeSampleUVSurface": "Value",
     "GeometryNodeMeshToSDFGrid": "SDF Grid",
     "GeometryNodeMeshToDensityGrid": "Density Grid",
+    # Batch 20 — grid ops, instance transform
+    "GeometryNodeDistributePointsInGrid": "Points",
+    "GeometryNodeGridToMesh": "Mesh",
+    "GeometryNodePointsToSDFGrid": "SDF Grid",
+    "GeometryNodeSetInstanceTransform": "Instances",
 }
 
 # Scalar property key → Blender input socket name
@@ -824,7 +834,7 @@ def _compile_geometry_op(node: IRGeometryOp, em: _Emitter) -> str:
     extra_vars: dict[str, tuple[str, str]] = {}
     for socket_name, extra_node in node.extra_children.items():
         ev = _compile_node(extra_node, em)
-        es = _get_geometry_output_socket(extra_node)
+        es = _get_field_output_socket(extra_node)
         extra_vars[socket_name] = (ev, es)
 
     em.next_row()
@@ -960,12 +970,39 @@ def _compile_field_input(node: IRFieldInput, em: _Emitter) -> str:
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
 
+    # Mapping from reference tag to bpy.data collection name
+    _REF_COLLECTIONS = {
+        "MATERIAL": "materials",
+        "OBJECT": "objects",
+        "COLLECTION": "collections",
+        "IMAGE": "images",
+    }
+
     # Enum/mode properties on the node itself
     for key, value in node.properties.items():
-        if isinstance(value, str):
+        if isinstance(value, tuple) and len(value) == 2 and value[0] in _REF_COLLECTIONS:
+            coll = _REF_COLLECTIONS[value[0]]
+            ref_name = value[1]
+            if ref_name:
+                em.line(f'{var}.{key} = bpy.data.{coll}.get({ref_name!r})')
+        elif isinstance(value, str):
             em.line(f'{var}.{key} = "{value}"')
         else:
             em.line(f'{var}.{key} = {value}')
+
+    # Default values on input sockets
+    for socket_name, value in node.input_defaults.items():
+        if isinstance(value, tuple) and len(value) == 2 and value[0] in _REF_COLLECTIONS:
+            coll = _REF_COLLECTIONS[value[0]]
+            ref_name = value[1]
+            if ref_name:
+                em.line(f'{var}.inputs["{socket_name}"].default_value = bpy.data.{coll}.get({ref_name!r})')
+        elif isinstance(value, str):
+            em.line(f'{var}.inputs["{socket_name}"].default_value = "{value}"')
+        elif isinstance(value, bool):
+            em.line(f'{var}.inputs["{socket_name}"].default_value = {value}')
+        else:
+            em.line(f'{var}.inputs["{socket_name}"].default_value = {value}')
 
     return var
 
@@ -984,6 +1021,82 @@ _FIELD_OUTPUT: dict[str, str] = {
     "GeometryNodeInputMeshIsland": "Island Index",
     "GeometryNodeInputID": "ID",
     "GeometryNodeInputNamedAttribute": "Attribute",
+    # Batch 17 — additional field inputs
+    "GeometryNodeInputRadius": "Radius",
+    "GeometryNodeInputEdgeSmooth": "Smooth",
+    "GeometryNodeInputShadeSmooth": "Smooth",
+    "GeometryNodeInputMeshFaceIsPlanar": "Planar",
+    "GeometryNodeInputTangent": "Tangent",
+    "GeometryNodeInputCurveTilt": "Tilt",
+    "GeometryNodeInputSplineCyclic": "Cyclic",
+    "GeometryNodeInputSplineResolution": "Resolution",
+    "GeometryNodeInputCurveHandlePositions": "Left",
+    "GeometryNodeCurveEndpointSelection": "Selection",
+    "GeometryNodeCurveHandleTypeSelection": "Selection",
+    "GeometryNodeSplineLength": "Length",
+    "GeometryNodeSplineParameter": "Factor",
+    "GeometryNodeCurveOfPoint": "Curve Index",
+    "GeometryNodeOffsetPointInCurve": "Is Valid Offset",
+    "GeometryNodePointsOfCurve": "Point Index",
+    "GeometryNodeInputShortestEdgePaths": "Next Vertex Index",
+    "GeometryNodeInputInstanceRotation": "Rotation",
+    "GeometryNodeInputInstanceScale": "Scale",
+    "GeometryNodeInputMaterialIndex": "Material Index",
+    # Batch 18 — scene, instance, topology, material, selection
+    "GeometryNodeInputSceneTime": "Seconds",
+    "GeometryNodeInputActiveCamera": "Active Camera",
+    "GeometryNodeSelfObject": "Self Object",
+    "GeometryNodeIsViewport": "Is Viewport",
+    "GeometryNodeInputInstanceBounds": "Min",
+    "GeometryNodeInputNamedLayerSelection": "Selection",
+    "GeometryNodeMeshFaceSetBoundaries": "Boundary Edges",
+    "GeometryNodeMaterialSelection": "Selection",
+    "GeometryNodeInputMaterial": "Material",
+    "GeometryNodeCornersOfEdge": "Corner Index",
+    "GeometryNodeCornersOfFace": "Corner Index",
+    "GeometryNodeCornersOfVertex": "Corner Index",
+    "GeometryNodeEdgesOfCorner": "Next Edge Index",
+    "GeometryNodeEdgesOfVertex": "Edge Index",
+    "GeometryNodeFaceOfCorner": "Face Index",
+    "GeometryNodeVertexOfCorner": "Vertex Index",
+    "GeometryNodeOffsetCornerInFace": "Corner Index",
+    "GeometryNodeIndexOfNearest": "Index",
+    "GeometryNodeEdgePathsToSelection": "Selection",
+    "GeometryNodeEdgesToFaceGroups": "Face Group ID",
+    # Batch 19 — instance, viewport, tool, ref, stats, UV, utility
+    "GeometryNodeInstanceTransform": "Transform",
+    "GeometryNodeViewportTransform": "Projection",
+    "GeometryNodeToolSelection": "Boolean",
+    "GeometryNodeToolFaceSet": "Face Set",
+    "GeometryNodeToolMousePosition": "Mouse X",
+    "GeometryNodeTool3DCursor": "Location",
+    "GeometryNodeToolActiveElement": "Index",
+    "GeometryNodeInputCollection": "Collection",
+    "GeometryNodeInputImage": "Image",
+    "GeometryNodeInputObject": "Object",
+    "GeometryNodeCameraInfo": "Focal Length",
+    "GeometryNodeImageTexture": "Color",
+    "GeometryNodeImageInfo": "Width",
+    "GeometryNodeFieldAverage": "Mean",
+    "GeometryNodeFieldMinAndMax": "Min",
+    "GeometryNodeFieldVariance": "Standard Deviation",
+    "GeometryNodeUVPackIslands": "UV",
+    "GeometryNodeUVUnwrap": "UV",
+    "GeometryNodeStringJoin": "String",
+    "GeometryNodeImportText": "String",
+    # Batch 20 — field processors, grid, gizmo, warning
+    "GeometryNodeBlurAttribute": "Value",
+    "GeometryNodeAccumulateField": "Leading",
+    "GeometryNodeFieldAtIndex": "Value",
+    "GeometryNodeFieldOnDomain": "Value",
+    "GeometryNodeGridInfo": "Transform",
+    "GeometryNodeSampleGrid": "Value",
+    "GeometryNodeSampleGridIndex": "Value",
+    "GeometryNodeSDFGridBoolean": "Grid",
+    "GeometryNodeWarning": "Show",
+    "GeometryNodeGizmoDial": "Transform",
+    "GeometryNodeGizmoLinear": "Transform",
+    "GeometryNodeGizmoTransform": "Transform",
 }
 
 # Math node output socket names
