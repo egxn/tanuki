@@ -98,6 +98,24 @@ def math_tan(a: IRNode) -> IRMathOp:
                     inputs={"Value": a}, label="tan")
 
 
+def math_arcsin(a: IRNode) -> IRMathOp:
+    """``asin(a)`` (scalar, result in radians, input clamped to [-1, 1])."""
+    return IRMathOp(math_type="ShaderNodeMath", operation="ARCSINE",
+                    inputs={"Value": a}, label="arcsin")
+
+
+def math_arccos(a: IRNode) -> IRMathOp:
+    """``acos(a)`` (scalar, result in radians, input clamped to [-1, 1])."""
+    return IRMathOp(math_type="ShaderNodeMath", operation="ARCCOSINE",
+                    inputs={"Value": a}, label="arccos")
+
+
+def math_arctan(a: IRNode) -> IRMathOp:
+    """``atan(a)`` (scalar, result in radians)."""
+    return IRMathOp(math_type="ShaderNodeMath", operation="ARCTANGENT",
+                    inputs={"Value": a}, label="arctan")
+
+
 def math_arctan2(a: IRNode, b: IRNode) -> IRMathOp:
     """``atan2(a, b)`` (scalar)."""
     return IRMathOp(math_type="ShaderNodeMath", operation="ARCTAN2",

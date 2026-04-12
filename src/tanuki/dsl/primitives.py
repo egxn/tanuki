@@ -44,12 +44,20 @@ def cylinder(
     d: float,
     label: str = "",
     vertices: int = 32,
+    side_segments: int = 1,
 ) -> IRPrimitive:
-    """Create a cylinder primitive with radius *r* and depth *d*."""
+    """Create a cylinder primitive with radius *r* and depth *d*.
+
+    *side_segments* sets the number of axial rings on the cylinder wall,
+    which is important for smooth per-vertex deformation in Blender GN.
+    """
+    props: dict = {"radius": r, "depth": d, "vertices": vertices}
+    if side_segments != 1:
+        props["side_segments"] = side_segments
     return IRPrimitive(
         primitive_type=PrimitiveType.CYLINDER,
         label=label,
-        properties={"radius": r, "depth": d, "vertices": vertices},
+        properties=props,
     )
 
 

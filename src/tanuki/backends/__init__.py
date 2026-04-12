@@ -11,6 +11,8 @@ from typing import Sequence, Union
 
 from ..ir.graph import IRGraph
 
+_VALID_TARGETS = {"blender", "jscad", "opencascade", "openscad"}
+
 
 def render(
     graph: IRGraph | Sequence[IRGraph],
@@ -27,8 +29,8 @@ def render(
               ``combined_export`` (single file, one ``setup_<name>()`` each).
             - *script* mode with a directory path (or no extension) uses
               ``individual_export`` (one file per graph).
-        target: Backend target (currently only ``"blender"``).
-        mode: ``"script"`` to generate .py file(s), ``"direct"`` to execute via bpy.
+        target: Backend target (``"blender"``, ``"jscad"``, ``"opencascade"``, or ``"openscad"``).
+        mode: ``"script"`` to generate source file(s), ``"direct"`` to execute via bpy (blender only).
         output_path: File or directory path for script mode.
 
     Returns:
@@ -38,12 +40,114 @@ def render(
         Multiple graphs + individual → list[Path] written.
         Direct mode → None.
     """
-    if target != "blender":
-        raise ValueError(f"Unsupported target: {target!r}. Currently only 'blender' is supported.")
+    if target not in _VALID_TARGETS:
+        raise ValueError(
+            f"Unsupported target: {target!r}. "
+            f"Choose from: {', '.join(sorted(_VALID_TARGETS))}"
+        )
 
-    # --- multiple graphs ----------------------------------------------------
+    # --- jscad backend ------------------------------------------------------
+    if target == "jscad":
+        from .jscad.compiler import compile_to_source as jscad_to_source
+        from .jscad.compiler import compile_to_script as jscad_to_script
+
+        if isinstance(graph, (list, tuple)):
+            graphs_jscad: Sequence[IRGraph] = graph
+            if mode != "script":
+                raise ValueError("JSCAD backend only supports mode='script'.")
+            if output_path is None:
+                return "\n".join(jscad_to_source(g) for g in graphs_jscad)
+            p = Path(output_path)
+            if p.suffix == ".jscad":
+                combined = "\n".join(jscad_to_source(g) for g in graphs_jscad)
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(combined)
+                return p
+            # Individual files
+            p.mkdir(parents=True, exist_ok=True)
+            paths = []
+            for g in graphs_jscad:
+                fp = p / f"{g.name}_gen.jscad"
+                fp.write_text(jscad_to_source(g))
+                paths.append(fp)
+            return paths
+
+        # Single graph
+        if mode != "script":
+            raise ValueError("JSCAD backend only supports mode='script'.")
+        if output_path is not None:
+            return jscad_to_script(graph, output_path)
+        return jscad_to_source(graph)
+
+    # --- openscad backend ---------------------------------------------------
+    if target == "openscad":
+        from .openscad.compiler import compile_to_source as scad_to_source
+        from .openscad.compiler import compile_to_script as scad_to_script
+
+        if isinstance(graph, (list, tuple)):
+            graphs_scad: Sequence[IRGraph] = graph
+            if mode != "script":
+                raise ValueError("OpenSCAD backend only supports mode='script'.")
+            if output_path is None:
+                return "\n".join(scad_to_source(g) for g in graphs_scad)
+            p = Path(output_path)
+            if p.suffix == ".scad":
+                combined = "\n".join(scad_to_source(g) for g in graphs_scad)
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(combined)
+                return p
+            # Individual files
+            p.mkdir(parents=True, exist_ok=True)
+            paths = []
+            for g in graphs_scad:
+                fp = p / f"{g.name}_gen.scad"
+                fp.write_text(scad_to_source(g))
+                paths.append(fp)
+            return paths
+
+        # Single graph
+        if mode != "script":
+            raise ValueError("OpenSCAD backend only supports mode='script'.")
+        if output_path is not None:
+            return scad_to_script(graph, output_path)
+        return scad_to_source(graph)
+
+    # --- opencascade backend ------------------------------------------------
+    if target == "opencascade":
+        from .opencascade.compiler import compile_to_source as oc_to_source
+        from .opencascade.compiler import compile_to_script as oc_to_script
+
+        if isinstance(graph, (list, tuple)):
+            graphs: Sequence[IRGraph] = graph
+            if mode != "script":
+                raise ValueError("OpenCascade backend only supports mode='script'.")
+            if output_path is None:
+                return "\n".join(oc_to_source(g) for g in graphs)
+            p = Path(output_path)
+            if p.suffix == ".js":
+                combined = "\n".join(oc_to_source(g) for g in graphs)
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(combined)
+                return p
+            # Individual files
+            p.mkdir(parents=True, exist_ok=True)
+            paths = []
+            for g in graphs:
+                fp = p / f"{g.name}_gen.js"
+                fp.write_text(oc_to_source(g))
+                paths.append(fp)
+            return paths
+
+        # Single graph
+        if mode != "script":
+            raise ValueError("OpenCascade backend only supports mode='script'.")
+        if output_path is not None:
+            return oc_to_script(graph, output_path)
+        return oc_to_source(graph)
+
+    # --- blender backend ----------------------------------------------------
     if isinstance(graph, (list, tuple)):
-        graphs: Sequence[IRGraph] = graph
+        graphs = graph
 
         if mode == "direct":
             from .blender.runtime import execute

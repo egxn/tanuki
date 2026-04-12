@@ -1,0 +1,48 @@
+.heroBanner {
+  padding: 4rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.features {
+  padding: 3rem 0;
+  background: var(--ifm-background-surface-color);
+}
+
+.featureCard {
+  padding: 1.5rem;
+}
+
+.codeSnippet {
+  background: var(--ifm-code-background);
+  border-radius: 6px;
+  padding: 1rem;
+  font-size: 0.8rem;
+  text-align: left;
+  overflow-x: auto;
+}
+
+.backends {
+  padding: 3rem 0;
+}
+
+.backendCard {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 1.5rem 1rem;
+  margin: 0.5rem;
+}
+
+.backendExt {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--ifm-color-primary);
+  margin-bottom: 0.5rem;
+}

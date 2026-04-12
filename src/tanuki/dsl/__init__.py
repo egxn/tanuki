@@ -80,7 +80,7 @@ from .math_ops import (
     math_add, math_subtract, math_multiply, math_divide,
     math_power, math_sqrt, math_absolute, math_minimum, math_maximum,
     math_less_than, math_greater_than,
-    math_sin, math_cos, math_tan, math_arctan2,
+    math_sin, math_cos, math_tan, math_arcsin, math_arccos, math_arctan, math_arctan2,
     math_floor, math_ceil, math_round, math_modulo,
     vec_add, vec_subtract, vec_multiply, vec_divide,
     vec_cross, vec_dot, vec_normalize, vec_length, vec_distance, vec_scale,

@@ -1,0 +1,41 @@
+/**
+ * Custom Docusaurus CSS for the Tanuki documentation site.
+ */
+
+:root {
+  --ifm-color-primary: #e05c1d;
+  --ifm-color-primary-dark: #c95219;
+  --ifm-color-primary-darker: #be4d18;
+  --ifm-color-primary-darkest: #9c3f13;
+  --ifm-color-primary-light: #e96d31;
+  --ifm-color-primary-lighter: #eb7439;
+  --ifm-color-primary-lightest: #ef8c59;
+  --ifm-code-font-size: 90%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #ef8c59;
+  --ifm-color-primary-dark: #eb7439;
+  --ifm-color-primary-darker: #e96d31;
+  --ifm-color-primary-darkest: #e05c1d;
+  --ifm-color-primary-light: #f3a47b;
+  --ifm-color-primary-lighter: #f5ae89;
+  --ifm-color-primary-lightest: #f9c7a9;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Hero gradient */
+.hero--primary {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+/* Code blocks */
+.theme-code-block {
+  border-radius: 8px;
+}
+
+/* Custom badge for supported/unsupported status */
+.badge--success { background-color: #1e7e34; color: white; }
+.badge--warning { background-color: #856404; color: white; }
+.badge--danger  { background-color: #721c24; color: white; }

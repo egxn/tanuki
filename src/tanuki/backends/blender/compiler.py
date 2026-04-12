@@ -414,15 +414,28 @@ _GEOM_OP_BOOL: dict[str, str] = {
 
 
 class _Emitter:
-    """Stateful code accumulator. Tracks variable names and node layout grid."""
+    """Stateful code accumulator. Tracks variable names and node layout.
+
+    Layout model — the main geometry chain flows left-to-right at y=0.
+    Helper/input nodes for each main node are stacked above it at y > 0.
+
+    Example for ``cube | translate | output``:
+    ::
+        y=280: [vec_size]  [vec_translation]
+        y=0:   [  cube  ] → [ transform ] → [ output ]
+    """
 
     def __init__(self) -> None:
         self._lines: list[str] = []
         self._var_counter = 0
-        self._grid_x = 0
-        self._grid_y = 0
-        self._node_width = 180
-        self._node_height = 200
+        # _main_x: pixel x of the *next* group's main node (advances per group).
+        self._main_x: int = 0
+        # _group_main_x: pixel x reserved for the *current* group's main node.
+        self._group_main_x: int = 0
+        # _helper_count: number of helpers placed in the current group.
+        self._helper_count: int = 0
+        self._node_width: int = 300
+        self._node_height: int = 280
 
     def line(self, text: str) -> None:
         self._lines.append(text)
@@ -434,14 +447,21 @@ class _Emitter:
         self._var_counter += 1
         return f"{prefix}_{self._var_counter}"
 
-    def next_location(self) -> tuple[int, int]:
-        loc = (self._grid_x * self._node_width, self._grid_y * self._node_height)
-        self._grid_x += 1
+    def start_group(self) -> None:
+        """Reserve a column slot for the next main node and reset helpers."""
+        self._group_main_x = self._main_x
+        self._main_x += self._node_width
+        self._helper_count = 0
+
+    def next_helper_location(self) -> tuple[int, int]:
+        """Location for a helper node stacked above the current group's main node."""
+        loc = (self._group_main_x, (self._helper_count + 1) * self._node_height)
+        self._helper_count += 1
         return loc
 
-    def next_row(self) -> None:
-        self._grid_y += 1
-        self._grid_x = 0
+    def next_main_location(self) -> tuple[int, int]:
+        """Location for the current group's main node (on the main chain, y=0)."""
+        return (self._group_main_x, 0)
 
     def source(self) -> str:
         return "\n".join(self._lines) + "\n"
@@ -454,7 +474,7 @@ class _Emitter:
 
 def _compile_value(node: IRValue, em: _Emitter) -> str:
     var = em.new_var("val")
-    loc = em.next_location()
+    loc = em.next_helper_location()
     em.line(f'{var} = node_tree.nodes.new("ShaderNodeValue")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
@@ -464,7 +484,7 @@ def _compile_value(node: IRValue, em: _Emitter) -> str:
 
 def _compile_vector(node: IRVector, em: _Emitter) -> str:
     var = em.new_var("vec")
-    loc = em.next_location()
+    loc = em.next_helper_location()
     em.line(f'{var} = node_tree.nodes.new("FunctionNodeInputVector")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
@@ -474,152 +494,154 @@ def _compile_vector(node: IRVector, em: _Emitter) -> str:
 
 def _compile_primitive(node: IRPrimitive, em: _Emitter) -> str:
     bpy_type = _PRIMITIVE_BPY_TYPE[node.primitive_type]
-    em.next_row()
+    em.start_group()
+    # Reserve the variable name before emitting any helper nodes so that
+    # deferred link/property lines can reference it by name.
     var = em.new_var("prim")
-    loc = em.next_location()
-    em.line(f'{var} = node_tree.nodes.new("{bpy_type}")')
-    em.line(f"{var}.location = {loc}")
-    em.line(f'{var}.label = {node.label!r}')
 
     props = node.properties
+    # Collect link and property lines that must be emitted after the main node.
+    deferred_lines: list[str] = []
 
     if node.primitive_type == PrimitiveType.CUBE:
         size_var = em.new_var("vec")
-        size_loc = em.next_location()
+        size_loc = em.next_helper_location()
         em.line(f'{size_var} = node_tree.nodes.new("FunctionNodeInputVector")')
         em.line(f"{size_var}.location = {size_loc}")
         em.line(f'{size_var}.label = "{node.label} size"')
         em.line(f"{size_var}.vector = {list(props['size'])}")
-        em.line(f'node_tree.links.new({size_var}.outputs["Vector"], {var}.inputs["Size"])')
+        deferred_lines.append(f'node_tree.links.new({size_var}.outputs["Vector"], {var}.inputs["Size"])')
 
     elif node.primitive_type == PrimitiveType.CYLINDER:
         r_var = _compile_value(IRValue(value=props["radius"], label=f"{node.label} radius"), em)
         d_var = _compile_value(IRValue(value=props["depth"], label=f"{node.label} depth"), em)
-        em.line(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
-        em.line(f'node_tree.links.new({d_var}.outputs["Value"], {var}.inputs["Depth"])')
+        deferred_lines.append(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
+        deferred_lines.append(f'node_tree.links.new({d_var}.outputs["Value"], {var}.inputs["Depth"])')
         if "vertices" in props:
-            em.line(f'{var}.inputs["Vertices"].default_value = {props["vertices"]}')
+            deferred_lines.append(f'{var}.inputs["Vertices"].default_value = {props["vertices"]}')
+        if "side_segments" in props:
+            deferred_lines.append(f'{var}.inputs["Side Segments"].default_value = {props["side_segments"]}')
 
     elif node.primitive_type == PrimitiveType.CONE:
         r1_var = _compile_value(IRValue(value=props["radius_top"], label=f"{node.label} radius top"), em)
         r2_var = _compile_value(IRValue(value=props["radius_bottom"], label=f"{node.label} radius bottom"), em)
         d_var = _compile_value(IRValue(value=props["depth"], label=f"{node.label} depth"), em)
-        em.line(f'node_tree.links.new({r1_var}.outputs["Value"], {var}.inputs["Radius Top"])')
-        em.line(f'node_tree.links.new({r2_var}.outputs["Value"], {var}.inputs["Radius Bottom"])')
-        em.line(f'node_tree.links.new({d_var}.outputs["Value"], {var}.inputs["Depth"])')
+        deferred_lines.append(f'node_tree.links.new({r1_var}.outputs["Value"], {var}.inputs["Radius Top"])')
+        deferred_lines.append(f'node_tree.links.new({r2_var}.outputs["Value"], {var}.inputs["Radius Bottom"])')
+        deferred_lines.append(f'node_tree.links.new({d_var}.outputs["Value"], {var}.inputs["Depth"])')
 
     elif node.primitive_type == PrimitiveType.SPHERE:
         r_var = _compile_value(IRValue(value=props["radius"], label=f"{node.label} radius"), em)
-        em.line(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
+        deferred_lines.append(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
         if "segments" in props:
-            em.line(f'{var}.inputs["Segments"].default_value = {props["segments"]}')
+            deferred_lines.append(f'{var}.inputs["Segments"].default_value = {props["segments"]}')
         if "rings" in props:
-            em.line(f'{var}.inputs["Rings"].default_value = {props["rings"]}')
+            deferred_lines.append(f'{var}.inputs["Rings"].default_value = {props["rings"]}')
 
     elif node.primitive_type == PrimitiveType.POINT:
         pos = props.get("position", (0, 0, 0))
-        em.line(f'{var}.inputs["Position"].default_value = {list(pos)}')
+        deferred_lines.append(f'{var}.inputs["Position"].default_value = {list(pos)}')
 
     elif node.primitive_type == PrimitiveType.CIRCLE:
         r_var = _compile_value(IRValue(value=props["radius"], label=f"{node.label} radius"), em)
-        em.line(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
-        em.line(f'{var}.inputs["Vertices"].default_value = {props["vertices"]}')
-        em.line(f'{var}.fill_type = "{props.get("fill_type", "NONE")}"')
+        deferred_lines.append(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
+        deferred_lines.append(f'{var}.inputs["Vertices"].default_value = {props["vertices"]}')
+        deferred_lines.append(f'{var}.fill_type = "{props.get("fill_type", "NONE")}"')
 
     elif node.primitive_type == PrimitiveType.GRID:
         sx_var = _compile_value(IRValue(value=props["size_x"], label=f"{node.label} size_x"), em)
         sy_var = _compile_value(IRValue(value=props["size_y"], label=f"{node.label} size_y"), em)
-        em.line(f'node_tree.links.new({sx_var}.outputs["Value"], {var}.inputs["Size X"])')
-        em.line(f'node_tree.links.new({sy_var}.outputs["Value"], {var}.inputs["Size Y"])')
-        em.line(f'{var}.inputs["Vertices X"].default_value = {props["vertices_x"]}')
-        em.line(f'{var}.inputs["Vertices Y"].default_value = {props["vertices_y"]}')
+        deferred_lines.append(f'node_tree.links.new({sx_var}.outputs["Value"], {var}.inputs["Size X"])')
+        deferred_lines.append(f'node_tree.links.new({sy_var}.outputs["Value"], {var}.inputs["Size Y"])')
+        deferred_lines.append(f'{var}.inputs["Vertices X"].default_value = {props["vertices_x"]}')
+        deferred_lines.append(f'{var}.inputs["Vertices Y"].default_value = {props["vertices_y"]}')
 
     elif node.primitive_type == PrimitiveType.ICO_SPHERE:
         r_var = _compile_value(IRValue(value=props["radius"], label=f"{node.label} radius"), em)
-        em.line(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
-        em.line(f'{var}.inputs["Subdivisions"].default_value = {props["subdivisions"]}')
+        deferred_lines.append(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
+        deferred_lines.append(f'{var}.inputs["Subdivisions"].default_value = {props["subdivisions"]}')
 
     elif node.primitive_type == PrimitiveType.LINE:
-        em.line(f'{var}.mode = "END_POINTS"')
-        em.line(f'{var}.inputs["Count"].default_value = {props["count"]}')
         start_var = _compile_vector(IRVector(value=props["start_location"], label=f"{node.label} start"), em)
         end_var = _compile_vector(IRVector(value=props["end_location"], label=f"{node.label} end"), em)
-        em.line(f'node_tree.links.new({start_var}.outputs["Vector"], {var}.inputs["Start Location"])')
-        em.line(f'node_tree.links.new({end_var}.outputs["Vector"], {var}.inputs["Offset"])')
+        deferred_lines.append(f'{var}.mode = "END_POINTS"')
+        deferred_lines.append(f'{var}.inputs["Count"].default_value = {props["count"]}')
+        deferred_lines.append(f'node_tree.links.new({start_var}.outputs["Vector"], {var}.inputs["Start Location"])')
+        deferred_lines.append(f'node_tree.links.new({end_var}.outputs["Vector"], {var}.inputs["Offset"])')
 
     elif node.primitive_type == PrimitiveType.CURVE_ARC:
-        em.line(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
         r_var = _compile_value(IRValue(value=props["radius"], label=f"{node.label} radius"), em)
-        em.line(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
-        em.line(f'{var}.inputs["Start Angle"].default_value = {math.radians(props["start_angle"])}')
-        em.line(f'{var}.inputs["Sweep Angle"].default_value = {math.radians(props["sweep_angle"])}')
+        deferred_lines.append(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
+        deferred_lines.append(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
+        deferred_lines.append(f'{var}.inputs["Start Angle"].default_value = {math.radians(props["start_angle"])}')
+        deferred_lines.append(f'{var}.inputs["Sweep Angle"].default_value = {math.radians(props["sweep_angle"])}')
 
     elif node.primitive_type == PrimitiveType.CURVE_CIRCLE:
-        em.line(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
         r_var = _compile_value(IRValue(value=props["radius"], label=f"{node.label} radius"), em)
-        em.line(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
+        deferred_lines.append(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
+        deferred_lines.append(f'node_tree.links.new({r_var}.outputs["Value"], {var}.inputs["Radius"])')
 
     elif node.primitive_type == PrimitiveType.CURVE_LINE:
         start_var = _compile_vector(IRVector(value=props["start"], label=f"{node.label} start"), em)
         end_var = _compile_vector(IRVector(value=props["end"], label=f"{node.label} end"), em)
-        em.line(f'node_tree.links.new({start_var}.outputs["Vector"], {var}.inputs["Start"])')
-        em.line(f'node_tree.links.new({end_var}.outputs["Vector"], {var}.inputs["End"])')
+        deferred_lines.append(f'node_tree.links.new({start_var}.outputs["Vector"], {var}.inputs["Start"])')
+        deferred_lines.append(f'node_tree.links.new({end_var}.outputs["Vector"], {var}.inputs["End"])')
 
     elif node.primitive_type == PrimitiveType.CURVE_QUADRILATERAL:
         w_var = _compile_value(IRValue(value=props["width"], label=f"{node.label} width"), em)
         h_var = _compile_value(IRValue(value=props["height"], label=f"{node.label} height"), em)
-        em.line(f'node_tree.links.new({w_var}.outputs["Value"], {var}.inputs["Width"])')
-        em.line(f'node_tree.links.new({h_var}.outputs["Value"], {var}.inputs["Height"])')
+        deferred_lines.append(f'node_tree.links.new({w_var}.outputs["Value"], {var}.inputs["Width"])')
+        deferred_lines.append(f'node_tree.links.new({h_var}.outputs["Value"], {var}.inputs["Height"])')
 
     elif node.primitive_type == PrimitiveType.CURVE_STAR:
-        em.line(f'{var}.inputs["Points"].default_value = {props["points"]}')
         ir_var = _compile_value(IRValue(value=props["inner_radius"], label=f"{node.label} inner r"), em)
         or_var = _compile_value(IRValue(value=props["outer_radius"], label=f"{node.label} outer r"), em)
-        em.line(f'node_tree.links.new({ir_var}.outputs["Value"], {var}.inputs["Inner Radius"])')
-        em.line(f'node_tree.links.new({or_var}.outputs["Value"], {var}.inputs["Outer Radius"])')
+        deferred_lines.append(f'{var}.inputs["Points"].default_value = {props["points"]}')
+        deferred_lines.append(f'node_tree.links.new({ir_var}.outputs["Value"], {var}.inputs["Inner Radius"])')
+        deferred_lines.append(f'node_tree.links.new({or_var}.outputs["Value"], {var}.inputs["Outer Radius"])')
 
     elif node.primitive_type == PrimitiveType.CURVE_SPIRAL:
-        em.line(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
-        em.line(f'{var}.inputs["Rotations"].default_value = {props["rotations"]}')
         sr_var = _compile_value(IRValue(value=props["start_radius"], label=f"{node.label} start r"), em)
         er_var = _compile_value(IRValue(value=props["end_radius"], label=f"{node.label} end r"), em)
         h_var = _compile_value(IRValue(value=props["height"], label=f"{node.label} height"), em)
-        em.line(f'node_tree.links.new({sr_var}.outputs["Value"], {var}.inputs["Start Radius"])')
-        em.line(f'node_tree.links.new({er_var}.outputs["Value"], {var}.inputs["End Radius"])')
-        em.line(f'node_tree.links.new({h_var}.outputs["Value"], {var}.inputs["Height"])')
+        deferred_lines.append(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
+        deferred_lines.append(f'{var}.inputs["Rotations"].default_value = {props["rotations"]}')
+        deferred_lines.append(f'node_tree.links.new({sr_var}.outputs["Value"], {var}.inputs["Start Radius"])')
+        deferred_lines.append(f'node_tree.links.new({er_var}.outputs["Value"], {var}.inputs["End Radius"])')
+        deferred_lines.append(f'node_tree.links.new({h_var}.outputs["Value"], {var}.inputs["Height"])')
 
     elif node.primitive_type == PrimitiveType.CURVE_BEZIER_SEGMENT:
-        em.line(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
         s_var = _compile_vector(IRVector(value=props["start"], label=f"{node.label} start"), em)
         sh_var = _compile_vector(IRVector(value=props["start_handle"], label=f"{node.label} start handle"), em)
         eh_var = _compile_vector(IRVector(value=props["end_handle"], label=f"{node.label} end handle"), em)
         e_var = _compile_vector(IRVector(value=props["end"], label=f"{node.label} end"), em)
-        em.line(f'node_tree.links.new({s_var}.outputs["Vector"], {var}.inputs["Start"])')
-        em.line(f'node_tree.links.new({sh_var}.outputs["Vector"], {var}.inputs["Start Handle"])')
-        em.line(f'node_tree.links.new({eh_var}.outputs["Vector"], {var}.inputs["End Handle"])')
-        em.line(f'node_tree.links.new({e_var}.outputs["Vector"], {var}.inputs["End"])')
+        deferred_lines.append(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
+        deferred_lines.append(f'node_tree.links.new({s_var}.outputs["Vector"], {var}.inputs["Start"])')
+        deferred_lines.append(f'node_tree.links.new({sh_var}.outputs["Vector"], {var}.inputs["Start Handle"])')
+        deferred_lines.append(f'node_tree.links.new({eh_var}.outputs["Vector"], {var}.inputs["End Handle"])')
+        deferred_lines.append(f'node_tree.links.new({e_var}.outputs["Vector"], {var}.inputs["End"])')
 
     elif node.primitive_type == PrimitiveType.CURVE_QUADRATIC_BEZIER:
-        em.line(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
         s_var = _compile_vector(IRVector(value=props["start"], label=f"{node.label} start"), em)
         m_var = _compile_vector(IRVector(value=props["middle"], label=f"{node.label} middle"), em)
         e_var = _compile_vector(IRVector(value=props["end"], label=f"{node.label} end"), em)
-        em.line(f'node_tree.links.new({s_var}.outputs["Vector"], {var}.inputs["Start"])')
-        em.line(f'node_tree.links.new({m_var}.outputs["Vector"], {var}.inputs["Middle"])')
-        em.line(f'node_tree.links.new({e_var}.outputs["Vector"], {var}.inputs["End"])')
+        deferred_lines.append(f'{var}.inputs["Resolution"].default_value = {props["resolution"]}')
+        deferred_lines.append(f'node_tree.links.new({s_var}.outputs["Vector"], {var}.inputs["Start"])')
+        deferred_lines.append(f'node_tree.links.new({m_var}.outputs["Vector"], {var}.inputs["Middle"])')
+        deferred_lines.append(f'node_tree.links.new({e_var}.outputs["Vector"], {var}.inputs["End"])')
 
     elif node.primitive_type == PrimitiveType.VOLUME_CUBE:
         d_var = _compile_value(IRValue(value=props["density"], label=f"{node.label} density"), em)
         b_var = _compile_value(IRValue(value=props["background"], label=f"{node.label} background"), em)
-        em.line(f'node_tree.links.new({d_var}.outputs["Value"], {var}.inputs["Density"])')
-        em.line(f'node_tree.links.new({b_var}.outputs["Value"], {var}.inputs["Background"])')
         min_var = _compile_vector(IRVector(value=props["min"], label=f"{node.label} min"), em)
         max_var = _compile_vector(IRVector(value=props["max"], label=f"{node.label} max"), em)
-        em.line(f'node_tree.links.new({min_var}.outputs["Vector"], {var}.inputs["Min"])')
-        em.line(f'node_tree.links.new({max_var}.outputs["Vector"], {var}.inputs["Max"])')
-        em.line(f'{var}.inputs["Resolution X"].default_value = {props["resolution_x"]}')
-        em.line(f'{var}.inputs["Resolution Y"].default_value = {props["resolution_y"]}')
-        em.line(f'{var}.inputs["Resolution Z"].default_value = {props["resolution_z"]}')
+        deferred_lines.append(f'node_tree.links.new({d_var}.outputs["Value"], {var}.inputs["Density"])')
+        deferred_lines.append(f'node_tree.links.new({b_var}.outputs["Value"], {var}.inputs["Background"])')
+        deferred_lines.append(f'node_tree.links.new({min_var}.outputs["Vector"], {var}.inputs["Min"])')
+        deferred_lines.append(f'node_tree.links.new({max_var}.outputs["Vector"], {var}.inputs["Max"])')
+        deferred_lines.append(f'{var}.inputs["Resolution X"].default_value = {props["resolution_x"]}')
+        deferred_lines.append(f'{var}.inputs["Resolution Y"].default_value = {props["resolution_y"]}')
+        deferred_lines.append(f'{var}.inputs["Resolution Z"].default_value = {props["resolution_z"]}')
 
     elif node.primitive_type in (
         PrimitiveType.IMPORT_OBJ,
@@ -627,29 +649,37 @@ def _compile_primitive(node: IRPrimitive, em: _Emitter) -> str:
         PrimitiveType.IMPORT_PLY,
         PrimitiveType.IMPORT_VDB,
     ):
-        em.line(f'{var}.inputs["Path"].default_value = {props["path"]!r}')
+        deferred_lines.append(f'{var}.inputs["Path"].default_value = {props["path"]!r}')
 
     elif node.primitive_type == PrimitiveType.IMPORT_CSV:
-        em.line(f'{var}.inputs["Path"].default_value = {props["path"]!r}')
-        em.line(f'{var}.inputs["Delimiter"].default_value = {props["delimiter"]!r}')
+        deferred_lines.append(f'{var}.inputs["Path"].default_value = {props["path"]!r}')
+        deferred_lines.append(f'{var}.inputs["Delimiter"].default_value = {props["delimiter"]!r}')
 
     elif node.primitive_type == PrimitiveType.COLLECTION_INFO:
         if props.get("collection"):
-            em.line(f'{var}.inputs["Collection"].default_value = bpy.data.collections.get({props["collection"]!r})')
+            deferred_lines.append(f'{var}.inputs["Collection"].default_value = bpy.data.collections.get({props["collection"]!r})')
         if "separate_children" in props:
-            em.line(f'{var}.inputs["Separate Children"].default_value = {props["separate_children"]}')
+            deferred_lines.append(f'{var}.inputs["Separate Children"].default_value = {props["separate_children"]}')
         if "reset_children" in props:
-            em.line(f'{var}.inputs["Reset Children"].default_value = {props["reset_children"]}')
+            deferred_lines.append(f'{var}.inputs["Reset Children"].default_value = {props["reset_children"]}')
         if "transform_space" in props:
-            em.line(f'{var}.transform_space = "{props["transform_space"]}"')
+            deferred_lines.append(f'{var}.transform_space = "{props["transform_space"]}"')
 
     elif node.primitive_type == PrimitiveType.OBJECT_INFO:
         if props.get("object"):
-            em.line(f'{var}.inputs["Object"].default_value = bpy.data.objects.get({props["object"]!r})')
+            deferred_lines.append(f'{var}.inputs["Object"].default_value = bpy.data.objects.get({props["object"]!r})')
         if "as_instance" in props:
-            em.line(f'{var}.inputs["As Instance"].default_value = {props["as_instance"]}')
+            deferred_lines.append(f'{var}.inputs["As Instance"].default_value = {props["as_instance"]}')
         if "transform_space" in props:
-            em.line(f'{var}.transform_space = "{props["transform_space"]}"')
+            deferred_lines.append(f'{var}.transform_space = "{props["transform_space"]}"')
+
+    # Main node placed after all helpers — appears to the right in Blender.
+    loc = em.next_main_location()
+    em.line(f'{var} = node_tree.nodes.new("{bpy_type}")')
+    em.line(f"{var}.location = {loc}")
+    em.line(f'{var}.label = {node.label!r}')
+    for deferred in deferred_lines:
+        em.line(deferred)
 
     return var
 
@@ -716,9 +746,9 @@ def _compile_boolean(node: IRBoolean, em: _Emitter) -> str:
     child_vars = [_compile_node(c, em) for c in node.children]
     child_sockets = [_get_geometry_output_socket(c) for c in node.children]
 
-    em.next_row()
+    em.start_group()
     var = em.new_var("bool")
-    loc = em.next_location()
+    loc = em.next_main_location()
     em.line(f'{var} = node_tree.nodes.new("GeometryNodeMeshBoolean")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
@@ -742,28 +772,32 @@ def _compile_transform(node: IRTransform, em: _Emitter) -> str:
     child_var = _compile_node(node.child, em) if node.child else None
     child_socket = _get_geometry_output_socket(node.child) if node.child else "Geometry"
 
-    em.next_row()
+    em.start_group()
     var = em.new_var("xform")
-    loc = em.next_location()
-    em.line(f'{var} = node_tree.nodes.new("GeometryNodeTransform")')
-    em.line(f"{var}.location = {loc}")
-    em.line(f'{var}.label = {node.label!r}')
+    deferred_lines: list[str] = []
 
     if child_var:
-        em.line(f'node_tree.links.new({child_var}.outputs["{child_socket}"], {var}.inputs["Geometry"])')
+        deferred_lines.append(f'node_tree.links.new({child_var}.outputs["{child_socket}"], {var}.inputs["Geometry"])')
 
     if node.translation is not None:
         t_var = _compile_vector(IRVector(value=node.translation, label=f"{node.label} translation"), em)
-        em.line(f'node_tree.links.new({t_var}.outputs["Vector"], {var}.inputs["Translation"])')
+        deferred_lines.append(f'node_tree.links.new({t_var}.outputs["Vector"], {var}.inputs["Translation"])')
 
     if node.rotation is not None:
         rads = tuple(c * math.pi / 180.0 for c in node.rotation)
         r_var = _compile_vector(IRVector(value=rads, label=f"{node.label} rotation"), em)
-        em.line(f'node_tree.links.new({r_var}.outputs["Vector"], {var}.inputs["Rotation"])')
+        deferred_lines.append(f'node_tree.links.new({r_var}.outputs["Vector"], {var}.inputs["Rotation"])')
 
     if node.scale is not None:
         s_var = _compile_vector(IRVector(value=node.scale, label=f"{node.label} scale"), em)
-        em.line(f'node_tree.links.new({s_var}.outputs["Vector"], {var}.inputs["Scale"])')
+        deferred_lines.append(f'node_tree.links.new({s_var}.outputs["Vector"], {var}.inputs["Scale"])')
+
+    loc = em.next_main_location()
+    em.line(f'{var} = node_tree.nodes.new("GeometryNodeTransform")')
+    em.line(f"{var}.location = {loc}")
+    em.line(f'{var}.label = {node.label!r}')
+    for deferred in deferred_lines:
+        em.line(deferred)
 
     return var
 
@@ -772,18 +806,22 @@ def _compile_set_position(node: IRSetPosition, em: _Emitter) -> str:
     child_var = _compile_node(node.child, em) if node.child else None
     child_socket = _get_geometry_output_socket(node.child) if node.child else "Geometry"
 
-    em.next_row()
+    em.start_group()
     var = em.new_var("setpos")
-    loc = em.next_location()
+    deferred_lines: list[str] = []
+
+    if child_var:
+        deferred_lines.append(f'node_tree.links.new({child_var}.outputs["{child_socket}"], {var}.inputs["Geometry"])')
+
+    off_var = _compile_vector(IRVector(value=node.offset, label=f"{node.label} offset"), em)
+    deferred_lines.append(f'node_tree.links.new({off_var}.outputs["Vector"], {var}.inputs["Offset"])')
+
+    loc = em.next_main_location()
     em.line(f'{var} = node_tree.nodes.new("GeometryNodeSetPosition")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
-
-    if child_var:
-        em.line(f'node_tree.links.new({child_var}.outputs["{child_socket}"], {var}.inputs["Geometry"])')
-
-    off_var = _compile_vector(IRVector(value=node.offset, label=f"{node.label} offset"), em)
-    em.line(f'node_tree.links.new({off_var}.outputs["Vector"], {var}.inputs["Offset"])')
+    for deferred in deferred_lines:
+        em.line(deferred)
 
     return var
 
@@ -792,9 +830,9 @@ def _compile_join(node: IRJoin, em: _Emitter) -> str:
     child_vars = [_compile_node(c, em) for c in node.children]
     child_sockets = [_get_geometry_output_socket(c) for c in node.children]
 
-    em.next_row()
+    em.start_group()
     var = em.new_var("join")
-    loc = em.next_location()
+    loc = em.next_main_location()
     em.line(f'{var} = node_tree.nodes.new("GeometryNodeJoinGeometry")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
@@ -811,9 +849,9 @@ def _compile_instance_on_points(node: IRInstanceOnPoints, em: _Emitter) -> str:
     instance_var = _compile_node(node.instance, em) if node.instance else None
     instance_socket = _get_geometry_output_socket(node.instance) if node.instance else "Geometry"
 
-    em.next_row()
+    em.start_group()
     var = em.new_var("inst")
-    loc = em.next_location()
+    loc = em.next_main_location()
     em.line(f'{var} = node_tree.nodes.new("GeometryNodeInstanceOnPoints")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
@@ -837,25 +875,60 @@ def _compile_geometry_op(node: IRGeometryOp, em: _Emitter) -> str:
         es = _get_field_output_socket(extra_node)
         extra_vars[socket_name] = (ev, es)
 
-    em.next_row()
+    em.start_group()
     var = em.new_var("geom_op")
-    loc = em.next_location()
+
+    props = node.properties
+    # Deferred lines: links and node properties emitted after the main node.
+    deferred_lines: list[str] = []
+
+    # Main geometry input link
+    input_sock = _GEOM_OP_INPUT.get(node.op_type, "Geometry")
+    if child_var:
+        deferred_lines.append(f'node_tree.links.new({child_var}.outputs["{child_socket}"], {var}.inputs["{input_sock}"])')
+
+    # Extra geometry input links
+    for socket_name, (ev, es) in extra_vars.items():
+        deferred_lines.append(f'node_tree.links.new({ev}.outputs["{es}"], {var}.inputs["{socket_name}"])')
+
+    # Scalar inputs — emit Value helper nodes above the main node
+    for key, input_name in _GEOM_OP_SCALAR.items():
+        if key in props:
+            v_var = _compile_value(IRValue(value=props[key], label=f"{node.label} {key}"), em)
+            deferred_lines.append(f'node_tree.links.new({v_var}.outputs["Value"], {var}.inputs["{input_name}"])')
+
+    # Vector inputs — emit Vector helper nodes above the main node
+    for key, input_name in [
+        ("rotation", "Rotation"),
+        ("scale", "Scale"),
+        ("translation", "Translation"),
+        ("normal", "Normal"),
+        ("position", "Position"),
+        ("offset", "Offset"),
+        ("guide_up", "Guide Up"),
+        ("point_up", "Point Up"),
+        ("spacing", "Spacing"),
+        ("center", "Center"),
+        ("axis", "Axis"),
+        ("sample_position", "Sample Position"),
+        ("source_position", "Source Position"),
+        ("ray_direction", "Ray Direction"),
+        ("uv_map", "UV Map"),
+        ("sample_uv", "Sample UV"),
+    ]:
+        if key in props:
+            v_var = _compile_vector(
+                IRVector(value=props[key], label=f"{node.label} {key}"), em
+            )
+            deferred_lines.append(f'node_tree.links.new({v_var}.outputs["Vector"], {var}.inputs["{input_name}"])')
+
+    # Main node placed after all helper nodes.
+    loc = em.next_main_location()
     em.line(f'{var} = node_tree.nodes.new("{node.op_type}")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
 
-    # Main geometry input
-    input_sock = _GEOM_OP_INPUT.get(node.op_type, "Geometry")
-    if child_var:
-        em.line(f'node_tree.links.new({child_var}.outputs["{child_socket}"], {var}.inputs["{input_sock}"])')
-
-    # Extra geometry inputs
-    for socket_name, (ev, es) in extra_vars.items():
-        em.line(f'node_tree.links.new({ev}.outputs["{es}"], {var}.inputs["{socket_name}"])')
-
-    props = node.properties
-
-    # Enum/mode properties
+    # Enum/mode properties (set directly on the node after creation)
     if "mode" in props:
         em.line(f'{var}.mode = "{props["mode"]}"')
     if "handle_type" in props:
@@ -883,41 +956,10 @@ def _compile_geometry_op(node: IRGeometryOp, em: _Emitter) -> str:
     if "target_element" in props:
         em.line(f'{var}.target_element = "{props["target_element"]}"')
 
-    # Scalar inputs (linked via Value nodes)
-    for key, input_name in _GEOM_OP_SCALAR.items():
-        if key in props:
-            v_var = _compile_value(IRValue(value=props[key], label=f"{node.label} {key}"), em)
-            em.line(f'node_tree.links.new({v_var}.outputs["Value"], {var}.inputs["{input_name}"])')
-
     # Boolean inputs (set as default_value)
     for key, input_name in _GEOM_OP_BOOL.items():
         if key in props:
             em.line(f'{var}.inputs["{input_name}"].default_value = {props[key]}')
-
-    # Vector inputs (linked via Vector nodes)
-    for key, input_name in [
-        ("rotation", "Rotation"),
-        ("scale", "Scale"),
-        ("translation", "Translation"),
-        ("normal", "Normal"),
-        ("position", "Position"),
-        ("offset", "Offset"),
-        ("guide_up", "Guide Up"),
-        ("point_up", "Point Up"),
-        ("spacing", "Spacing"),
-        ("center", "Center"),
-        ("axis", "Axis"),
-        ("sample_position", "Sample Position"),
-        ("source_position", "Source Position"),
-        ("ray_direction", "Ray Direction"),
-        ("uv_map", "UV Map"),
-        ("sample_uv", "Sample UV"),
-    ]:
-        if key in props:
-            v_var = _compile_vector(
-                IRVector(value=props[key], label=f"{node.label} {key}"), em
-            )
-            em.line(f'node_tree.links.new({v_var}.outputs["Vector"], {var}.inputs["{input_name}"])')
 
     # String inputs (set as default_value)
     if "string" in props:
@@ -938,6 +980,10 @@ def _compile_geometry_op(node: IRGeometryOp, em: _Emitter) -> str:
         if key in props and props[key]:
             em.line(f'{var}.inputs["{input_name}"].default_value = bpy.data.materials.get({props[key]!r})')
 
+    # Emit deferred links after the main node is defined
+    for deferred in deferred_lines:
+        em.line(deferred)
+
     # Viewer is a terminal (no output); pass through the child
     if node.op_type == "GeometryNodeViewer":
         return child_var
@@ -949,9 +995,9 @@ def _compile_separate_components(node: IRSeparateComponents, em: _Emitter) -> st
     child_var = _compile_node(node.child, em) if node.child else None
     child_socket = _get_geometry_output_socket(node.child) if node.child else "Geometry"
 
-    em.next_row()
+    em.start_group()
     var = em.new_var("sep")
-    loc = em.next_location()
+    loc = em.next_main_location()
     em.line(f'{var} = node_tree.nodes.new("GeometryNodeSeparateComponents")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
@@ -963,9 +1009,9 @@ def _compile_separate_components(node: IRSeparateComponents, em: _Emitter) -> st
 
 
 def _compile_field_input(node: IRFieldInput, em: _Emitter) -> str:
-    em.next_row()
+    em.start_group()
     var = em.new_var("field")
-    loc = em.next_location()
+    loc = em.next_main_location()
     em.line(f'{var} = node_tree.nodes.new("{node.field_type}")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
@@ -1117,9 +1163,9 @@ def _compile_math_op(node: IRMathOp, em: _Emitter) -> str:
         is_ = _get_field_output_socket(input_node)
         input_vars[socket_key] = (iv, is_)
 
-    em.next_row()
+    em.start_group()
     var = em.new_var("math")
-    loc = em.next_location()
+    loc = em.next_main_location()
     em.line(f'{var} = node_tree.nodes.new("{node.math_type}")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
@@ -1157,9 +1203,9 @@ def _compile_output(node: IROutput, em: _Emitter) -> str:
     child_var = _compile_node(node.child, em) if node.child else None
     child_socket = _get_geometry_output_socket(node.child) if node.child else "Geometry"
 
-    em.next_row()
+    em.start_group()
     var = em.new_var("out")
-    loc = em.next_location()
+    loc = em.next_main_location()
     em.line(f'{var} = node_tree.nodes.new("NodeGroupOutput")')
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = "output"')
