@@ -316,10 +316,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.mode == "combined":
-        out = args.output or "trap_light_gen.py"
+        out = args.output or "trap_light_combined.py"
         path = combined_export(ALL_PARTS, out)
         print(f"Generated {len(ALL_PARTS)} parts in {path} ({path.stat().st_size // 1024} KB)")
     else:
-        out = args.output or "trap_light_gen"
+        out = args.output or "trap_light_individual"
         written = individual_export(ALL_PARTS, out)
         print(f"Generated {len(written)} files in {out}/")

@@ -4,8 +4,9 @@ Given a mesh geometry, these functions produce:
 
 - **edges_group**: the edges of the mesh converted to curves.
 - **faces_group**: the mesh faces as-is (the mesh *is* the face data).
-- **angles_group**: for each vertex, three short lines of length *n*
-  along the directions of the connected edges, visualizing the angles.
+- **angles_group**: for each edge, a short 3-point connector curve in 3D.
+- **flattened_angles_group**: for each edge, a planar 3-point connector
+    curve whose opening angle matches the mesh dihedral angle.
 
 All functions are composable via the ``|`` pipe operator.
 
@@ -27,17 +28,86 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from ...ir.nodes import IRGeometryOp, IRFieldInput, IRNode, IRJoin, IRTransform, IRValue, IRVector, Vec3
-from ..field_nodes import edge_vertices, edge_angle
+from ..field_nodes import edge_angle, edge_vertices, index
 from ..math_ops import (
+    math_cos,
+    math_multiply,
+    math_subtract,
+    math_sin,
     vec_add,
-    vec_subtract,
     vec_multiply,
     vec_normalize,
     vec_scale,
+    vec_subtract,
 )
 
 
 Op = Callable[[IRNode], IRNode]
+
+
+def _named_attribute_reader(name: str, data_type: str = "FLOAT") -> IRFieldInput:
+    return IRFieldInput(
+        field_type="GeometryNodeInputNamedAttribute",
+        output_socket="Attribute",
+        properties={"data_type": data_type},
+        input_defaults={"Name": name},
+        label=f"attr:{name}",
+    )
+
+
+def _edge_midpoint(p1: IRNode, p2: IRNode) -> IRNode:
+    return vec_scale(vec_add(p1, p2), IRValue(value=0.5, label="half"))
+
+
+def _ordered_edge_curves(
+    node: IRNode,
+    positions: tuple[IRNode, ...],
+    *,
+    label: str,
+) -> IRGeometryOp:
+    mesh_with_edge_id = IRGeometryOp(
+        op_type="GeometryNodeStoreNamedAttribute",
+        child=node,
+        properties={"name": "_edge_id", "data_type": "INT", "domain": "EDGE"},
+        extra_children={"Value": index()},
+        label=f"{label}_edge_id",
+    )
+
+    point_sets: list[IRNode] = []
+    for order, position in enumerate(positions):
+        points = IRGeometryOp(
+            op_type="GeometryNodeMeshToPoints",
+            child=mesh_with_edge_id,
+            properties={"mode": "EDGES"},
+            extra_children={"Position": position},
+            label=f"{label}_pt_{order}",
+        )
+        point_sets.append(
+            IRGeometryOp(
+                op_type="GeometryNodeStoreNamedAttribute",
+                child=points,
+                properties={
+                    "name": "_point_order",
+                    "data_type": "FLOAT",
+                    "domain": "POINT",
+                },
+                extra_children={
+                    "Value": IRValue(value=float(order), label=f"{label}_order_{order}"),
+                },
+                label=f"{label}_store_order_{order}",
+            )
+        )
+
+    joined = IRJoin(children=tuple(point_sets), label=f"{label}_points")
+    return IRGeometryOp(
+        op_type="GeometryNodePointsToCurves",
+        child=joined,
+        extra_children={
+            "Curve Group ID": _named_attribute_reader("_edge_id", data_type="INT"),
+            "Weight": _named_attribute_reader("_point_order"),
+        },
+        label=label,
+    )
 
 
 def edges_group() -> Op:
@@ -70,107 +140,46 @@ def faces_group() -> Op:
 
 
 def angles_group(arm_length: float = 0.5) -> Op:
-    """Visualize vertex angles as short edge-direction arms.
+    """Visualize each edge with a short 3-point connector curve.
 
-    For each edge, two direction arms of length *arm_length* are created
-    from the edge vertex positions.  The result is instanced line segments
-    that fan out from each vertex along the connected edges, making the
-    dihedral angles visible.
+    For each edge, this creates a polyline with three ordered points:
 
-    Implementation detail (Geometry Nodes):
+    1. A tip offset from vertex 1 toward vertex 2 by *arm_length*.
+    2. The edge midpoint.
+    3. A tip offset from vertex 2 toward vertex 1 by *arm_length*.
 
-    1. ``Edge Vertices`` → positions ``P1``, ``P2`` of each edge.
-    2. ``dir = normalize(P2 - P1)``  and  ``-dir = normalize(P1 - P2)``.
-    3. Scale each direction by *arm_length*.
-    4. Convert mesh to points (edge domain) and instance tiny line
-       segments at each point, oriented by the direction vectors.
-
-    The whole thing compiles to a chain of field + math + instancing
-    nodes that Blender evaluates per-edge.
+    The result is visible curve geometry rather than point attributes,
+    so it can be joined directly with the mesh faces and edge curves.
     """
     def _apply(node: IRNode) -> IRNode:
-        # --- Field computation (runs per-edge) ---
-        # Positions of the two vertices of each edge
         p1 = edge_vertices("Position 1")
         p2 = edge_vertices("Position 2")
-
-        # Direction vectors from each vertex toward the other
         dir_1_to_2 = vec_normalize(vec_subtract(p2, p1))
         dir_2_to_1 = vec_normalize(vec_subtract(p1, p2))
-
-        # Scale to arm_length
         length_node = IRValue(value=arm_length, label="arm_length")
-        arm_1 = vec_scale(dir_1_to_2, length_node)
-        arm_2 = vec_scale(dir_2_to_1, length_node)
+        tip_1 = vec_add(p1, vec_scale(dir_1_to_2, length_node))
+        tip_2 = vec_add(p2, vec_scale(dir_2_to_1, length_node))
+        midpoint = _edge_midpoint(p1, p2)
 
-        # --- Geometry pipeline ---
-        # Convert mesh to points on edge domain — one point per edge
-        mesh_to_pts = IRGeometryOp(
-            op_type="GeometryNodeMeshToPoints",
-            child=node,
-            properties={"mode": "EDGES"},
-            label="edges_to_points",
+        return _ordered_edge_curves(
+            node,
+            (tip_1, midpoint, tip_2),
+            label="edge_angle_arms",
         )
-
-        # Store the arm vectors as named attributes so we can use them
-        # for positioning after instancing.
-        store_arm1 = IRGeometryOp(
-            op_type="GeometryNodeStoreNamedAttribute",
-            child=mesh_to_pts,
-            properties={
-                "name": "_arm_dir_1",
-                "data_type": "FLOAT_VECTOR",
-                "domain": "POINT",
-            },
-            extra_children={"Value": arm_1},
-            label="store_arm1",
-        )
-
-        store_arm2 = IRGeometryOp(
-            op_type="GeometryNodeStoreNamedAttribute",
-            child=store_arm1,
-            properties={
-                "name": "_arm_dir_2",
-                "data_type": "FLOAT_VECTOR",
-                "domain": "POINT",
-            },
-            extra_children={"Value": arm_2},
-            label="store_arm2",
-        )
-
-        # Also store edge angle as an attribute for downstream use
-        angle_field = edge_angle(unsigned=True)
-        store_angle = IRGeometryOp(
-            op_type="GeometryNodeStoreNamedAttribute",
-            child=store_arm2,
-            properties={
-                "name": "_edge_angle",
-                "data_type": "FLOAT",
-                "domain": "POINT",
-            },
-            extra_children={"Value": angle_field},
-            label="store_angle",
-        )
-
-        return store_angle
     return _apply
 
 
 def flattened_angles_group(arm_length: float = 0.5, plane: str = "XY") -> Op:
-    """Per-vertex angle connectors as polylines in the target plane.
+    """Build one flat connector curve per edge in the target plane.
 
-    For each mesh vertex a single curve is produced whose points are the
-    tips of arms extending along each connected-edge direction, projected
-    onto the target plane.  The number of curve vertices equals the vertex
-    valence (number of connected edges):
-
-    ==============================  ==========  ================
-    Mesh                            Valence     Curve vertices
-    ==============================  ==========  ================
-    Cube vertex                     3 edges     3
-    UV Sphere regular vertex        4 edges     4
-    UV Sphere pole (seg=16)         16 edges    16
-    ==============================  ==========  ================
+    Each edge becomes a 3-point polyline ``tip_a -> center -> tip_b``.
+    The center is the edge midpoint projected to the target plane, while
+    the two tips are laid out symmetrically in-plane using half the edge's
+    interior dihedral angle. Blender's ``Edge Angle`` field yields the
+    unsigned angle between adjacent face normals, so this helper converts
+    it to the interior fold angle with ``pi - angle``. This keeps the
+    planar connector valid even when the original edge is orthogonal to
+    the target plane.
 
     Parameters
     ----------
@@ -188,84 +197,57 @@ def flattened_angles_group(arm_length: float = 0.5, plane: str = "XY") -> Op:
     if plane not in _plane_mask:
         raise ValueError(f"Unsupported plane: {plane!r}")
     mask = _plane_mask[plane]
+    if plane == "XY":
+        primary_axis = IRVector(value=(1.0, 0.0, 0.0), label="plane_primary")
+        secondary_axis = IRVector(value=(0.0, 1.0, 0.0), label="plane_secondary")
+    elif plane == "XZ":
+        primary_axis = IRVector(value=(1.0, 0.0, 0.0), label="plane_primary")
+        secondary_axis = IRVector(value=(0.0, 0.0, 1.0), label="plane_secondary")
+    else:
+        primary_axis = IRVector(value=(0.0, 1.0, 0.0), label="plane_primary")
+        secondary_axis = IRVector(value=(0.0, 0.0, 1.0), label="plane_secondary")
 
     def _apply(node: IRNode) -> IRNode:
-        # Edge topology queries (EDGE-domain fields)
         p1 = edge_vertices("Position 1")
         p2 = edge_vertices("Position 2")
-        vi1 = edge_vertices("Vertex Index 1")
-        vi2 = edge_vertices("Vertex Index 2")
-
         length = IRValue(value=arm_length, label="arm_length")
         plane_vec = IRVector(value=mask, label="plane_mask")
+        midpoint = vec_multiply(_edge_midpoint(p1, p2), plane_vec)
 
-        # Project vertex positions onto the target plane
-        p1_flat = vec_multiply(p1, plane_vec)
-        p2_flat = vec_multiply(p2, plane_vec)
-
-        # In-plane direction from each vertex toward the other
-        dir_12 = vec_normalize(vec_subtract(p2_flat, p1_flat))
-        dir_21 = vec_normalize(vec_subtract(p1_flat, p2_flat))
-
-        # Arm tip positions (each tip "belongs to" the vertex it extends from)
-        tip_at_v1 = vec_add(p1_flat, vec_scale(dir_12, length))
-        tip_at_v2 = vec_add(p2_flat, vec_scale(dir_21, length))
-
-        # Store vertex indices on EDGE domain before MeshToPoints.
-        # MeshToPoints(EDGES) transfers EDGE attributes → POINT attributes.
-        mesh_vi1 = IRGeometryOp(
-            op_type="GeometryNodeStoreNamedAttribute",
-            child=node,
-            properties={"name": "_vid", "data_type": "INT", "domain": "EDGE"},
-            extra_children={"Value": vi1},
-            label="store_vi1",
+        interior_angle = math_subtract(
+            IRValue(value=3.141592653589793, label="pi"),
+            edge_angle(unsigned=True),
         )
-        mesh_vi2 = IRGeometryOp(
-            op_type="GeometryNodeStoreNamedAttribute",
-            child=node,
-            properties={"name": "_vid", "data_type": "INT", "domain": "EDGE"},
-            extra_children={"Value": vi2},
-            label="store_vi2",
+        half_angle = math_multiply(
+            interior_angle,
+            IRValue(value=0.5, label="half_angle_scale"),
+        )
+        cosine = math_cos(half_angle)
+        sine = math_sin(half_angle)
+        neg_sine = math_multiply(sine, IRValue(value=-1.0, label="neg_one"))
+
+        dir_a = vec_add(
+            vec_scale(primary_axis, cosine),
+            vec_scale(secondary_axis, sine),
+        )
+        dir_b = vec_add(
+            vec_scale(primary_axis, cosine),
+            vec_scale(secondary_axis, neg_sine),
         )
 
-        # Convert to points positioned at the arm tips
-        pts_v1 = IRGeometryOp(
-            op_type="GeometryNodeMeshToPoints",
-            child=mesh_vi1,
-            properties={"mode": "EDGES"},
-            extra_children={"Position": tip_at_v1},
-            label="tips_v1",
-        )
-        pts_v2 = IRGeometryOp(
-            op_type="GeometryNodeMeshToPoints",
-            child=mesh_vi2,
-            properties={"mode": "EDGES"},
-            extra_children={"Position": tip_at_v2},
-            label="tips_v2",
-        )
+        tip_a = vec_add(midpoint, vec_scale(dir_a, length))
+        tip_b = vec_add(midpoint, vec_scale(dir_b, length))
 
-        def _vid_reader() -> IRFieldInput:
-            return IRFieldInput(
-                field_type="GeometryNodeInputNamedAttribute",
-                output_socket="Attribute",
-                properties={"data_type": "INT"},
-                input_defaults={"Name": "_vid"},
-                label="attr:_vid",
-            )
-
-        # Group all arm tips by vertex index → one curve per vertex
-        joined = IRJoin(children=(pts_v1, pts_v2), label="all_tips")
-        return IRGeometryOp(
-            op_type="GeometryNodePointsToCurves",
-            child=joined,
-            extra_children={"Curve Group ID": _vid_reader()},
-            label="vertex_connectors",
+        return _ordered_edge_curves(
+            node,
+            (tip_a, midpoint, tip_b),
+            label="flat_edge_connectors",
         )
 
     return _apply
 
 def mesh_analysis(mesh: IRNode, arm_length: float = 0.5, flatten_plane: str = "XY") -> IRJoin:
-    """Full analysis: join edges + faces + angle arms (3D) + flattened angle arms (2D) into one geometry.
+    """Full analysis: join edges, faces, 3D edge arms, and planar edge connectors.
 
     Parameters
     ----------
@@ -299,8 +281,8 @@ def mesh_analysis_split(
 ) -> dict[str, IRNode]:
     """Like mesh_analysis, but returns each group as a separate IRNode.
 
-    Useful for exporting edges, faces, and flat angle arms as independent
-    objects in the Blender collection (e.g. for SVG printing).
+    Useful for exporting edges, faces, 3D edge arms, and flat connectors
+    as independent objects in the Blender collection.
 
     Parameters
     ----------
@@ -314,11 +296,12 @@ def mesh_analysis_split(
     Returns
     -------
     dict
-        Keys: "edges", "faces", "flat_angles" — each an independent IRNode.
+        Keys: "edges", "faces", "angles", "flat_angles" — each an independent IRNode.
     """
     return {
         "edges": mesh | edges_group(),
         "faces": mesh | faces_group(),
+        "angles": mesh | angles_group(arm_length=arm_length),
         "flat_angles": mesh | flattened_angles_group(arm_length=arm_length, plane=flatten_plane),
     }
 
@@ -338,13 +321,13 @@ def mesh_analysis_planar(
     - ``edges``       — edge skeleton as curves with thickness *edge_radius*,
                         centered at the origin.
     - ``faces``       — face mesh projected flat, offset by (*spacing*, 0, 0).
-    - ``flat_angles`` — per-edge dihedral angle connectors (T/Y shapes)
+    - ``flat_angles`` — per-edge planar connector curves whose opening angle
+                        matches the interior dihedral angle,
                         offset by (2 × *spacing*, 0, 0).
 
-    The ``flat_angles`` arm directions are computed from the actual dihedral
-    angle of each edge, so all edges (including those oriented along the
-    out-of-plane axis) produce a correct T or Y shape.  A cube edge (90°)
-    produces a T; a dodecahedron edge (≈116.6°) produces a wider Y.
+    The ``flat_angles`` arm directions are computed from the interior
+    dihedral angle of each edge, so even edges orthogonal to the target
+    plane still produce a valid planar connector.
 
     Parameters
     ----------
@@ -395,10 +378,7 @@ def mesh_analysis_planar(
         label="faces_positioned",
     )
 
-    # --- 3. FLAT ANGLES: per-edge T/Y connectors, side-by-side with others -
-    # flattened_angles_group computes arm directions purely from the dihedral
-    # angle using sin/cos, so Z-direction edges are handled correctly.
-    # _flat() then projects the point positions to the target plane.
+    # --- 3. FLAT ANGLES: per-edge planar connectors, side-by-side ----------
     flat_angles_out = IRTransform(
         child=_flat(
             mesh | flattened_angles_group(arm_length=arm_length, plane=flatten_plane),

@@ -74,9 +74,9 @@ def create_film_slider():
     return ctx.graph
 
 ALL_PARTS = [
-    # create_tube_ext,
+    create_tube_ext,
     create_film_slider_round,
-    # create_film_slider,
+    create_film_slider,
 ]
 
 if __name__ == "__main__":
