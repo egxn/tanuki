@@ -1,8 +1,8 @@
-"""Naranjos map — procedural building & border generator.
+"""Naranjos map — procedural building, hall, roof, and border generator.
 
-Reads *buildings.json* and *borders.json*, imports *map.svg* into Blender,
-converts SVG paths to hollow multi-floor buildings in **Blam Units**
-(1 BU ≈ 0.55 m), and places them in the ``BSP`` collection.
+Reads *buildings.json*, *roofs_halls.json*, and *borders.json*, imports
+*map.svg* into Blender, converts SVG paths to hollow volumes in
+**Blam Units** (1 BU ≈ 0.55 m), and places them in the ``BSP`` collection.
 
 Run inside Blender::
 
@@ -15,7 +15,9 @@ Run inside Blender::
 from __future__ import annotations
 
 import json
+import math
 import xml.etree.ElementTree as ET
+from collections import Counter
 from pathlib import Path
 
 import bpy
@@ -33,6 +35,9 @@ M_PER_BU = 0.55
 
 # Wall thickness in BU  (~12 cm real → 0.12 / 0.55 ≈ 0.22 BU)
 WALL_THICKNESS_BU = 0.22
+
+# Default inter-floor height used by halls/roofs unless their JSON overrides it.
+DEFAULT_INTER_FLOOR_HEIGHT_M = 2.28
 
 # After Blender imports the SVG the coordinates end up in Blender's internal
 # scale.  The raw imported dimensions for this map are approximately:
@@ -59,6 +64,11 @@ def m_to_bu(metres: float) -> float:
     return metres / M_PER_BU
 
 
+def bu_to_m(blam_units: float) -> float:
+    """Convert Blam Units to metres."""
+    return blam_units * M_PER_BU
+
+
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
@@ -77,6 +87,52 @@ def _load_buildings() -> list[dict]:
 def _load_borders() -> dict:
     with open(_DIR / "borders.json", "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def _load_roofs_halls() -> list[dict]:
+    with open(_DIR / "roofs_halls.json", "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _building_floor_count(building: dict) -> int:
+    return int(building.get("floor", building.get("floors", 1)))
+
+
+def _infer_brick_height_m(buildings_data: list[dict]) -> float | None:
+    samples: list[float] = []
+    for building in buildings_data:
+        floor_height = building.get("floor_height")
+        bricks_h = building.get("meta", {}).get("bricks_h")
+        if floor_height and bricks_h:
+            samples.append(float(floor_height) / float(bricks_h))
+    if not samples:
+        return None
+    samples.sort()
+    return samples[len(samples) // 2]
+
+
+def _building_pitch_m(building: dict, brick_height_m: float | None) -> float | None:
+    if "floor_height" in building:
+        return float(building["floor_height"])
+    bricks_h = building.get("meta", {}).get("bricks_h")
+    if brick_height_m is not None and bricks_h:
+        return float(bricks_h) * brick_height_m
+    return None
+
+
+def _required_building_floors(entry: dict) -> int:
+    floor_base = max(int(entry.get("floor_base", 1)), 1)
+    if entry.get("kind") == "hall":
+        return floor_base
+    return max(floor_base - 1, 1)
+
+
+def _object_height_bu(obj: bpy.types.Object) -> float | None:
+    mesh = obj.data
+    if mesh is None or not mesh.vertices:
+        return None
+    zs = [vert.co.z for vert in mesh.vertices]
+    return max(zs) - min(zs)
 
 
 # ---------------------------------------------------------------------------
@@ -275,6 +331,139 @@ def _build_floor_module(
     return module
 
 
+def _build_stacked_volume(
+    curve_obj: bpy.types.Object,
+    name: str,
+    module_height_bu: float,
+    z_start_bu: float,
+    module_count: int = 1,
+) -> bpy.types.Object:
+    """Build one or more sealed modules from a footprint curve."""
+    footprint = _curve_to_edge_mesh(curve_obj)
+
+    modules: list[bpy.types.Object] = []
+    for index in range(module_count):
+        z_off = z_start_bu + (index * module_height_bu)
+        mod_obj = _build_floor_module(
+            footprint,
+            module_height_bu,
+            WALL_THICKNESS_BU,
+            z_off,
+        )
+        mod_obj.name = f"{name}_module_{index}"
+        modules.append(mod_obj)
+
+    if len(modules) > 1:
+        bpy.ops.object.select_all(action="DESELECT")
+        for module in modules:
+            module.select_set(True)
+        bpy.context.view_layer.objects.active = modules[0]
+        bpy.ops.object.join()
+
+    volume_obj = bpy.context.active_object if len(modules) > 1 else modules[0]
+    volume_obj.name = name
+
+    bpy.ops.object.select_all(action="DESELECT")
+    footprint.select_set(True)
+    bpy.context.view_layer.objects.active = footprint
+    bpy.ops.object.delete()
+
+    return volume_obj
+
+
+def _storey_pitch_m(entry: dict, buildings_data: list[dict]) -> float:
+    if "pitch_m" in entry:
+        return float(entry["pitch_m"])
+
+    brick_height_m = _infer_brick_height_m(buildings_data)
+    required_floors = _required_building_floors(entry)
+    candidates: list[float] = []
+    for building in buildings_data:
+        if _building_floor_count(building) < required_floors:
+            continue
+        pitch_m = _building_pitch_m(building, brick_height_m)
+        if pitch_m is not None:
+            candidates.append(round(pitch_m, 4))
+
+    if not candidates:
+        return DEFAULT_INTER_FLOOR_HEIGHT_M
+
+    return Counter(candidates).most_common(1)[0][0]
+
+
+def _inter_floor_height_m(entry: dict, buildings_data: list[dict]) -> float:
+    return bu_to_m(_entry_height_bu(entry, buildings_data))
+
+
+def _generated_storey_pitch_bu(
+    entry: dict,
+    buildings_data: list[dict],
+    building_objects: dict[str, bpy.types.Object] | None,
+) -> float | None:
+    if not building_objects:
+        return None
+
+    required_floors = _required_building_floors(entry)
+    candidates: list[float] = []
+    for building in buildings_data:
+        floors = _building_floor_count(building)
+        if floors < required_floors:
+            continue
+        obj = building_objects.get(building["name"])
+        if obj is None:
+            continue
+        height_bu = _object_height_bu(obj)
+        if height_bu is not None:
+            candidates.append(round(height_bu / floors, 4))
+
+    if not candidates:
+        return None
+
+    return Counter(candidates).most_common(1)[0][0]
+
+
+def _entry_height_bu(
+    entry: dict,
+    buildings_data: list[dict],
+    building_objects: dict[str, bpy.types.Object] | None = None,
+) -> float:
+    if "height_bu" in entry:
+        return float(entry["height_bu"])
+    if "height" in entry:
+        return m_to_bu(float(entry["height"]))
+    cap_offset_bu = WALL_THICKNESS_BU / math.sqrt(2)
+    pitch_bu = _generated_storey_pitch_bu(entry, buildings_data, building_objects)
+    if pitch_bu is None:
+        pitch_bu = m_to_bu(_storey_pitch_m(entry, buildings_data))
+    return max(pitch_bu - (2 * cap_offset_bu), 0.0)
+
+
+def _base_z_offset_bu(entry: dict, level_height_bu: float) -> float:
+    """Return the Z start for an inter-floor volume.
+
+    ``floor_base`` indexes the upper floor bound of the span:
+      - floor_base=2 → volume spans between floors 1 and 2
+      - floor_base=3 → volume spans between floors 2 and 3
+    """
+    floor_base = max(int(entry.get("floor_base", 1)) - 1, 0)
+    return floor_base * level_height_bu
+
+
+def _entry_z_start_bu(
+    entry: dict,
+    level_height_bu: float,
+    buildings_data: list[dict],
+    building_objects: dict[str, bpy.types.Object] | None = None,
+) -> float:
+    if "z_start_bu" in entry:
+        return float(entry["z_start_bu"])
+    cap_offset_bu = WALL_THICKNESS_BU / math.sqrt(2)
+    pitch_bu = _generated_storey_pitch_bu(entry, buildings_data, building_objects)
+    if pitch_bu is None:
+        pitch_bu = m_to_bu(_storey_pitch_m(entry, buildings_data))
+    return _base_z_offset_bu(entry, pitch_bu) + cap_offset_bu
+
+
 # ---------------------------------------------------------------------------
 # Building & border generators
 # ---------------------------------------------------------------------------
@@ -287,38 +476,30 @@ def _build_building(
     name = building["name"]
     num_floors = building.get("floor", 1)
     floor_height_bu = m_to_bu(building.get("floor_height", 2.28))
+    return _build_stacked_volume(
+        curve_obj,
+        name=name,
+        module_height_bu=floor_height_bu,
+        z_start_bu=0.0,
+        module_count=num_floors,
+    )
 
-    # Convert curve to a flat edge-mesh (the footprint)
-    footprint = _curve_to_edge_mesh(curve_obj)
 
-    # Build one sealed module per floor and collect them
-    floor_modules: list[bpy.types.Object] = []
-    for fi in range(num_floors):
-        z_off = fi * floor_height_bu
-        mod_obj = _build_floor_module(
-            footprint, floor_height_bu, WALL_THICKNESS_BU, z_off
-        )
-        mod_obj.name = f"{name}_floor_{fi}"
-        floor_modules.append(mod_obj)
-
-    # Join all floor modules into a single object
-    if len(floor_modules) > 1:
-        bpy.ops.object.select_all(action="DESELECT")
-        for m in floor_modules:
-            m.select_set(True)
-        bpy.context.view_layer.objects.active = floor_modules[0]
-        bpy.ops.object.join()
-
-    building_obj = bpy.context.active_object if len(floor_modules) > 1 else floor_modules[0]
-    building_obj.name = name
-
-    # Clean up the helper footprint mesh
-    bpy.ops.object.select_all(action="DESELECT")
-    footprint.select_set(True)
-    bpy.context.view_layer.objects.active = footprint
-    bpy.ops.object.delete()
-
-    return building_obj
+def _build_roof_or_hall(
+    curve_obj: bpy.types.Object,
+    entry: dict,
+    buildings_data: list[dict],
+    building_objects: dict[str, bpy.types.Object] | None = None,
+) -> bpy.types.Object:
+    """Generate a hall/roof volume from a footprint curve."""
+    level_height_bu = _entry_height_bu(entry, buildings_data, building_objects)
+    z_start_bu = _entry_z_start_bu(entry, level_height_bu, buildings_data, building_objects)
+    return _build_stacked_volume(
+        curve_obj,
+        name=entry["name"],
+        module_height_bu=level_height_bu,
+        z_start_bu=z_start_bu,
+    )
 
 
 def _build_border(
@@ -409,17 +590,20 @@ def _cleanup_svg_leftovers(svg_objects: list[bpy.types.Object]) -> None:
 # ---------------------------------------------------------------------------
 
 def generate_naranjos() -> None:
-    """Generate all buildings and borders for the Naranjos map.
+    """Generate all buildings, halls, roofs, and borders for Naranjos.
 
     1. Imports *map.svg* → curve objects.
     2. For each building in *buildings.json*: matches the SVG curve by
        ``path_name``, converts to a hollow multi-floor mesh, places in BSP.
-    3. Generates border walls from *borders.json*.
-    4. Cleans up SVG leftovers.
+    3. For each entry in *roofs_halls.json*: builds one sealed volume placed
+       at the ``floor_base`` Z level.
+    4. Generates border walls from *borders.json*.
+    5. Cleans up SVG leftovers.
 
     All geometry is in **Blam Units** (1 BU ≈ 0.55 m).
     """
     buildings_data = _load_buildings()
+    roofs_halls_data = _load_roofs_halls()
     border_data = _load_borders()
 
     print("[naranjos] Importing map.svg …")
@@ -433,6 +617,7 @@ def generate_naranjos() -> None:
     print(f"[naranjos] Label map: {label_map}")
 
     generated: list[bpy.types.Object] = []
+    building_objects: dict[str, bpy.types.Object] = {}
 
     # ── buildings ─────────────────────────────────────────────────────────
     for bldg in buildings_data:
@@ -451,6 +636,46 @@ def generate_naranjos() -> None:
         )
 
         obj = _build_building(curve, bldg)
+        _move_to_collection(obj, "BSP")
+        generated.append(obj)
+        building_objects[bldg["name"]] = obj
+
+    # ── halls & roofs ─────────────────────────────────────────────────────
+    for entry in roofs_halls_data:
+        path_name = entry["path_name"]
+        curve = _find_curve(svg_objects, path_name, label_map)
+        if curve is None:
+            print(f"[naranjos] WARNING: no curve for '{path_name}' — skipped.")
+            continue
+
+        kind = entry.get("kind", "volume")
+        level_height_bu = _entry_height_bu(entry, buildings_data, building_objects)
+        level_height_m = bu_to_m(level_height_bu)
+        pitch_bu = _generated_storey_pitch_bu(entry, buildings_data, building_objects)
+        if pitch_bu is None:
+            pitch_bu = m_to_bu(_storey_pitch_m(entry, buildings_data))
+        z_start_bu = _entry_z_start_bu(
+            entry,
+            level_height_bu,
+            buildings_data,
+            building_objects,
+        )
+        placement = (
+            f"z={z_start_bu:.2f} BU (override)"
+            if "z_start_bu" in entry
+            else (
+                f"between floors {max(int(entry.get('floor_base', 1)) - 1, 0)} "
+                f"and {entry.get('floor_base', 1)}, z={z_start_bu:.2f} BU "
+                f"within pitch {pitch_bu:.2f} BU"
+            )
+        )
+        print(
+            f"[naranjos] {kind.title()} '{entry['name']}': "
+            f"{placement}, height {level_height_bu:.2f} BU "
+            f"({level_height_m:.2f} m)"
+        )
+
+        obj = _build_roof_or_hall(curve, entry, buildings_data, building_objects)
         _move_to_collection(obj, "BSP")
         generated.append(obj)
 

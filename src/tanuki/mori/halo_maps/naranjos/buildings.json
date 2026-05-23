@@ -113,5 +113,14 @@
     "meta": {
       "bricks_h": 38
     }
+  },
+  {
+    "name": "auditorio",
+    "floor": 1,
+    "path_name": "auditorio",
+    "floor_height": 2.28,
+    "meta": {
+      "bricks_h": 38
+    }
   }
 ]

@@ -1,8 +1,8 @@
-"""Naranjos map — DSL-based parametric building & border generator.
+"""Naranjos map — DSL-based parametric building, hall, roof, and border generator.
 
 Uses the Tanuki Geometry Nodes DSL to create **parametric** node trees
-for each building and border.  The resulting GN modifiers stay live
-(not baked) so that floor count, height, wall thickness, etc. can be
+for each building, hall, roof, and border. The resulting GN modifiers stay
+live (not baked) so that floor count, height, wall thickness, etc. can be
 adjusted directly in Blender.
 
 Run inside Blender::
@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import sys
 import xml.etree.ElementTree as ET
+from collections import Counter
 from pathlib import Path
 
 # Ensure tanuki is importable when running standalone inside Blender
@@ -36,15 +37,13 @@ from tanuki.dsl import (
     output,
     object_info,
     curve_to_mesh,
-    fill_curve,
-    extrude,
     translate,
     join,
     clones,
     realize_instances,
     set_spline_cyclic,
 )
-from tanuki.dsl.curves import curve_quadrilateral
+from tanuki.dsl.curves import curve_line, curve_quadrilateral
 from tanuki.backends.blender.compiler import compile_to_source
 
 # ---------------------------------------------------------------------------
@@ -56,6 +55,7 @@ _DIR = Path(__file__).resolve().parent
 M_PER_BU = 0.55
 WALL_THICKNESS_BU = 0.22
 SLAB_THICKNESS_BU = 0.05
+DEFAULT_INTER_FLOOR_HEIGHT_M = 2.28
 
 # SVG → BU scale (calibrated for this map's raw import).
 SVG_TO_BU = 0.005
@@ -65,6 +65,10 @@ CURVE_RESOLUTION = 12
 
 def m_to_bu(metres: float) -> float:
     return metres / M_PER_BU
+
+
+def bu_to_m(blam_units: float) -> float:
+    return blam_units * M_PER_BU
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +106,148 @@ def _load_buildings() -> list[dict]:
 def _load_borders() -> dict:
     with open(_DIR / "borders.json", "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def _load_roofs_halls() -> list[dict]:
+    with open(_DIR / "roofs_halls.json", "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _building_floor_count(building: dict) -> int:
+    return int(building.get("floor", building.get("floors", 1)))
+
+
+def _infer_brick_height_m(buildings_data: list[dict]) -> float | None:
+    samples: list[float] = []
+    for building in buildings_data:
+        floor_height = building.get("floor_height")
+        bricks_h = building.get("meta", {}).get("bricks_h")
+        if floor_height and bricks_h:
+            samples.append(float(floor_height) / float(bricks_h))
+    if not samples:
+        return None
+    samples.sort()
+    return samples[len(samples) // 2]
+
+
+def _building_pitch_m(building: dict, brick_height_m: float | None) -> float | None:
+    if "floor_height" in building:
+        return float(building["floor_height"])
+    bricks_h = building.get("meta", {}).get("bricks_h")
+    if brick_height_m is not None and bricks_h:
+        return float(bricks_h) * brick_height_m
+    return None
+
+
+def _required_building_floors(entry: dict) -> int:
+    floor_base = max(int(entry.get("floor_base", 1)), 1)
+    if entry.get("kind") == "hall":
+        return floor_base
+    return max(floor_base - 1, 1)
+
+
+def _evaluated_object_height_bu(obj: bpy.types.Object) -> float | None:
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    eval_obj = obj.evaluated_get(depsgraph)
+    eval_mesh = eval_obj.to_mesh()
+    try:
+        zs = [vert.co.z for vert in eval_mesh.vertices]
+        if not zs:
+            return None
+        return max(zs) - min(zs)
+    finally:
+        eval_obj.to_mesh_clear()
+
+
+def _generated_storey_pitch_bu(
+    entry: dict,
+    buildings_data: list[dict],
+    building_objects: dict[str, bpy.types.Object] | None,
+) -> float | None:
+    if not building_objects:
+        return None
+
+    required_floors = _required_building_floors(entry)
+    candidates: list[float] = []
+    for building in buildings_data:
+        floors = _building_floor_count(building)
+        if floors < required_floors:
+            continue
+        obj = building_objects.get(building["name"])
+        if obj is None:
+            continue
+        height_bu = _evaluated_object_height_bu(obj)
+        if height_bu is not None:
+            candidates.append(round(height_bu / floors, 4))
+
+    if not candidates:
+        return None
+
+    return Counter(candidates).most_common(1)[0][0]
+
+
+def _storey_pitch_m(entry: dict, buildings_data: list[dict]) -> float:
+    if "pitch_m" in entry:
+        return float(entry["pitch_m"])
+
+    brick_height_m = _infer_brick_height_m(buildings_data)
+    required_floors = _required_building_floors(entry)
+    candidates: list[float] = []
+    for building in buildings_data:
+        if _building_floor_count(building) < required_floors:
+            continue
+        pitch_m = _building_pitch_m(building, brick_height_m)
+        if pitch_m is not None:
+            candidates.append(round(pitch_m, 4))
+
+    if not candidates:
+        return DEFAULT_INTER_FLOOR_HEIGHT_M
+
+    return Counter(candidates).most_common(1)[0][0]
+
+
+def _inter_floor_height_m(entry: dict, buildings_data: list[dict]) -> float:
+    return bu_to_m(_entry_height_bu(entry, buildings_data))
+
+
+def _entry_height_bu(
+    entry: dict,
+    buildings_data: list[dict],
+    building_objects: dict[str, bpy.types.Object] | None = None,
+) -> float:
+    if "height_bu" in entry:
+        return float(entry["height_bu"])
+    if "height" in entry:
+        return m_to_bu(float(entry["height"]))
+    pitch_bu = _generated_storey_pitch_bu(entry, buildings_data, building_objects)
+    if pitch_bu is None:
+        pitch_bu = m_to_bu(_storey_pitch_m(entry, buildings_data))
+    return max(pitch_bu - (2 * SLAB_THICKNESS_BU), 0.0)
+
+
+def _base_z_offset_bu(entry: dict, level_height_bu: float) -> float:
+    """Return the Z start for an inter-floor volume.
+
+    ``floor_base`` indexes the upper floor bound of the span:
+      - floor_base=2 → volume spans between floors 1 and 2
+      - floor_base=3 → volume spans between floors 2 and 3
+    """
+    floor_base = max(int(entry.get("floor_base", 1)) - 1, 0)
+    return floor_base * level_height_bu
+
+
+def _entry_z_start_bu(
+    entry: dict,
+    level_height_bu: float,
+    buildings_data: list[dict],
+    building_objects: dict[str, bpy.types.Object] | None = None,
+) -> float:
+    if "z_start_bu" in entry:
+        return float(entry["z_start_bu"])
+    pitch_bu = _generated_storey_pitch_bu(entry, buildings_data, building_objects)
+    if pitch_bu is None:
+        pitch_bu = m_to_bu(_storey_pitch_m(entry, buildings_data))
+    return _base_z_offset_bu(entry, pitch_bu) + SLAB_THICKNESS_BU
 
 
 # ---------------------------------------------------------------------------
@@ -167,16 +313,17 @@ def _building_graph(
     floor_height_bu: float,
     wall_thickness_bu: float,
     slab_thickness_bu: float,
+    z_start_bu: float = 0.0,
 ):
-    """Build an IRGraph for a hollow multi-floor building.
+    """Build an IRGraph for one or more sealed storey volumes.
 
     Strategy (all in Geometry Nodes):
         1. Object Info → footprint curve
         2. Set Spline Cyclic (ensure closed)
         3. Wall profile = Curve Quadrilateral (wall_thickness × floor_height)
         4. Curve to Mesh (footprint, profile) → hollow walls for one floor
-        5. Fill Curve → Extrude thin → floor slab
-        6. Ceiling slab = floor slab translated up
+        5. Sweep the footprint along a short vertical line → closed floor slab
+        6. Ceiling slab = same sweep translated up
         7. Join walls + floor + ceiling → one floor module
         8. Instance on Points at (0,0, i*floor_height) for each floor
         9. Realize instances → final geometry
@@ -199,18 +346,14 @@ def _building_graph(
             | translate(0, 0, floor_height_bu / 2)
         )
 
-        # Floor slab: fill the footprint curve, extrude a thin slab upward
-        floor_slab = (
-            footprint
-            | fill_curve()
-            | extrude(offset_scale=slab_thickness_bu)
+        slab_path = curve_line(
+            start=(0.0, 0.0, 0.0),
+            end=(0.0, 0.0, slab_thickness_bu),
         )
-
-        # Ceiling slab: same shape at the top of the floor
+        floor_slab = slab_path | curve_to_mesh(profile=footprint, fill_caps=True)
         ceiling_slab = (
-            footprint
-            | fill_curve()
-            | extrude(offset_scale=slab_thickness_bu)
+            slab_path
+            | curve_to_mesh(profile=footprint, fill_caps=True)
             | translate(0, 0, floor_height_bu - slab_thickness_bu)
         )
 
@@ -223,10 +366,31 @@ def _building_graph(
         ]
         stacked = clones(one_floor, floor_positions)
         result = stacked | realize_instances()
+        if z_start_bu:
+            result = result | translate(0, 0, z_start_bu)
 
         output(result)
 
     return ctx.graph
+
+
+def _roof_or_hall_graph(
+    name: str,
+    curve_obj_name: str,
+    level_height_bu: float,
+    wall_thickness_bu: float,
+    slab_thickness_bu: float,
+    z_start_bu: float,
+):
+    return _building_graph(
+        name,
+        curve_obj_name,
+        num_floors=1,
+        floor_height_bu=level_height_bu,
+        wall_thickness_bu=wall_thickness_bu,
+        slab_thickness_bu=slab_thickness_bu,
+        z_start_bu=z_start_bu,
+    )
 
 
 def _border_graph(
@@ -358,13 +522,14 @@ def _validate_object(obj_name: str) -> dict[str, list[str]]:
 # ---------------------------------------------------------------------------
 
 def generate_naranjos_dsl() -> None:
-    """Generate Naranjos map buildings & borders with parametric Geometry Nodes.
+    """Generate Naranjos map volumes with parametric Geometry Nodes.
 
-    Each building and border gets a **live GN modifier** compiled from the
+    Each building, hall, roof, and border gets a **live GN modifier** compiled from the
     Tanuki DSL.  Parameters (floor height, wall thickness, etc.) are baked
     into the node tree but can be adjusted by editing node values in Blender.
     """
     buildings_data = _load_buildings()
+    roofs_halls_data = _load_roofs_halls()
     border_data = _load_borders()
 
     print("[naranjos-dsl] Importing map.svg …")
@@ -377,6 +542,7 @@ def generate_naranjos_dsl() -> None:
     print(f"[naranjos-dsl] Imported {len(svg_objects)} SVG objects.")
 
     generated: list[bpy.types.Object] = []
+    building_objects: dict[str, bpy.types.Object] = {}
 
     # ── buildings ─────────────────────────────────────────────────────────
     for bldg in buildings_data:
@@ -411,6 +577,59 @@ def generate_naranjos_dsl() -> None:
         # Keep the footprint curve visible for reference
         _move_to_collection(curve, "DEBUG")
 
+        generated.append(obj)
+        building_objects[name] = obj
+
+    # ── halls & roofs ─────────────────────────────────────────────────────
+    for entry in roofs_halls_data:
+        path_name = entry["path_name"]
+        curve = _find_curve(svg_objects, path_name, label_map)
+        if curve is None:
+            print(f"[naranjos-dsl] WARNING: no curve for '{path_name}' — skipped.")
+            continue
+
+        name = entry["name"]
+        kind = entry.get("kind", "volume")
+        level_height_bu = _entry_height_bu(entry, buildings_data, building_objects)
+        level_height_m = bu_to_m(level_height_bu)
+        pitch_bu = _generated_storey_pitch_bu(entry, buildings_data, building_objects)
+        if pitch_bu is None:
+            pitch_bu = m_to_bu(_storey_pitch_m(entry, buildings_data))
+        z_start_bu = _entry_z_start_bu(
+            entry,
+            level_height_bu,
+            buildings_data,
+            building_objects,
+        )
+        placement = (
+            f"z={z_start_bu:.2f} BU (override)"
+            if "z_start_bu" in entry
+            else (
+                f"between floors {max(int(entry.get('floor_base', 1)) - 1, 0)} "
+                f"and {entry.get('floor_base', 1)}, z={z_start_bu:.2f} BU "
+                f"within pitch {pitch_bu:.2f} BU"
+            )
+        )
+
+        print(
+            f"[naranjos-dsl] {kind.title()} '{name}': "
+            f"{placement}, height {level_height_bu:.2f} BU "
+            f"({level_height_m:.2f} m)"
+        )
+
+        graph = _roof_or_hall_graph(
+            name,
+            curve.name,
+            level_height_bu,
+            WALL_THICKNESS_BU,
+            SLAB_THICKNESS_BU,
+            z_start_bu,
+        )
+        gn_src = compile_to_source(graph)
+
+        obj = _exec_gn_setup(name, gn_src)
+        _move_to_collection(obj, "BSP")
+        _move_to_collection(curve, "DEBUG")
         generated.append(obj)
 
     # ── borders ───────────────────────────────────────────────────────────

@@ -88,10 +88,116 @@ def create_lamp_joint_3():
 
     return ctx.graph
 
+def create_lamp_joint_4():
+    with model("lamp_joint_4") as ctx:
+        join_4 = union([
+            cylinder(40/2, 50, "join_4", vertices=128),
+            cube(30, 40, 50, label="join_4_cube") | place(-15, 0, 0)
+        ])
+
+        h_join_4 = cylinder(25/2 + tolerance * 2, 60, "h_join_4")
+        join_4 = difference(join_4, [
+            h_join_4,
+            cube(10 + tolerance, 30 + tolerance, 48 + tolerance, label="h_join_4_cube") | place(-20, 0, 2),
+            cube(10 + tolerance, 30 + tolerance, 50 + tolerance, label="h_join_4_cube") | place(-30, 0, 25),
+            cylinder(2 + tolerance, 50, "h_join_4_cylinder") | rotate(90, 0, 0),
+            cylinder(4 + tolerance, 6, "h_join_4_cylinder") | rotate(90, 0, 0) | place(0, 20, 0),
+            cylinder(4 + tolerance, 6, "h_join_4_cylinder") | rotate(90, 0, 0) | place(0, -20, 0)
+        ])
+     
+        output(join_4)
+
+    return ctx.graph
+
+def create_lamp_joint_5():
+    with model("lamp_joint_5") as ctx:
+        curve_thread = curve_circle(radius=2, label="curve_thread")
+        h_curve_spiral_1 = curve_spiral(
+            resolution=100,
+            rotations=5,
+            start_radius=20/2,
+            end_radius=20/2,
+            height=35,
+            label="h_thread",
+        ) | curve_to_mesh(curve_thread, fill_caps=True) | rotate(90, 0, 0) | place(-44, 18, 9)
+
+        join_5 = union([
+            cylinder(32/2, 30 - tolerance, "join_1_wood") | rotate(90, 0, 0) | place(-44, 0, 9),
+            cube(10 - tolerance*2, 30 - tolerance*2, 47 - tolerance*2, label="l_2") | place(-20, 0, 1.5),
+            cube(24, 30 - tolerance*2, 25, label="l_1") | place(-32, 0, 12.5),
+        ])
+
+        join_5 = difference(
+            join_5,
+            [cylinder(20/2 + tolerance*2, 32, "h_join_1") | rotate(90, 0, 0) | place(-44, 0, 9), h_curve_spiral_1])
+
+
+        output(join_5)
+
+    return ctx.graph
+
+def create_lamp_joint_6():
+    with model("lamp_joint_6") as ctx:
+        join_6 = cylinder(40/2, 30, "join_6", vertices=128)
+        join_6 = difference(join_6,
+                            [cylinder(25/2 + tolerance*3, 35, "h_join_1", vertices=128),
+                             cylinder(2, 50, "h_join_1", vertices=128)  | rotate(90, 0, 90),
+                             cylinder(3, 4, "h_join_1", vertices=128)  | rotate(90, 0, 90) | translate(20, 0, 0),
+                             cylinder(3, 4, "h_join_1", vertices=128)  | rotate(90, 0, 90) | translate(-20, 0, 0),
+                             ],
+                            ) | translate(-44, 40, 15)
+
+        curve_thread = curve_circle(radius=1.5, label="curve_thread")
+        curve_spiral_1 = curve_spiral(
+            resolution=100,
+            rotations=5,
+            start_radius=18/2,
+            end_radius=18/2,
+            height=35,
+            label="h_thread",
+        ) | curve_to_mesh(curve_thread, fill_caps=True) | rotate(90, 0, 0) | place(-44, 18, 9)
+
+        curve_spiral_1 = union([
+            curve_spiral_1,
+            cylinder(20/2 + tolerance, 44, "thread_cylinder", vertices=128) | rotate(90, 0, 0) | place(-44, 5, 9)
+        ])
+
+        curve_spiral_plane = intersect([
+            cube(100, 50, 18, label="curve_spiral_plane") | place(-44, 0, 9),
+            curve_spiral_1,
+        ])
+
+        join_6 = union([
+            join_6,
+            curve_spiral_plane,
+        ])
+
+        output(join_6)
+
+    return ctx.graph
+
+def create_lamp_joint_7():
+    with model("lamp_joint_7") as ctx:
+        base_y_1 = cube(40, 160, 40, label="base")
+        base_cyl_1 = cylinder(40, 40, "h_wood", vertices=128)
+        base_cyl_2 = cylinder(30, 60, "h_wood", vertices=128) | place(0, 0, 20)
+
+        base = union([
+            base_y_1,
+            base_cyl_1,
+            base_cyl_2
+        ])
+
+        join_7 = difference(base, [h_wood])
+
+        output(join_7)
+    return ctx.graph
+
 ALL_PARTS = [
-    create_lamp_joint_1(),
-    create_lamp_joint_2(),
-    # create_lamp_joint_3(),
+    # create_lamp_joint_4(),
+    # create_lamp_joint_5(),
+    # create_lamp_joint_6()
+    create_lamp_joint_7()
 ]
 
 if __name__ == "__main__":
