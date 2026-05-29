@@ -85,5 +85,8 @@ assemble_and_export(export_path=_jms_out, jms_scale=_jms_scale)
 # ---------------------------------------------------------------------------
 # Step 5 — save .blend
 # ---------------------------------------------------------------------------
+# Pack all external images into the blend so textures always show in Blender
+# regardless of where the file is opened from.
+bpy.ops.file.pack_all()
 bpy.ops.wm.save_as_mainfile(filepath=str(_blend_out.resolve()), relative_remap=True)
 print(f"[run_level] Blend saved → {_blend_out.resolve()}")

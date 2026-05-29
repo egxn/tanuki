@@ -117,10 +117,10 @@ GROUND_MARGIN_BU: float = 10.0
 #: Default JMS output path.
 DEFAULT_JMS_PATH = str(_DIR / "naranjos.jms")
 
-WALL_TIF  = str(_DIR / "materials" / "wall.tif")
-FLOOR_TIF = str(_DIR / "materials" / "floor.tif")
-HALL_TIF  = str(_DIR / "materials" / "hall.tif")
-ROOF_TIF  = str(_DIR / "materials" / "roof.tif")
+WALL_TIF  = str(_DIR / "materials" / "wall.png")
+FLOOR_TIF = str(_DIR / "materials" / "floor.png")
+HALL_TIF  = str(_DIR / "materials" / "hall.png")
+ROOF_TIF  = str(_DIR / "materials" / "roof.png")
 
 WALL_TILE_BU:  float = 1.0   # 1 BU ≈ 0.55 m per tile
 FLOOR_TILE_BU: float = 1.0
@@ -159,26 +159,27 @@ def _ensure_material(name: str, image_path: str | None = None) -> bpy.types.Mate
         mat.use_nodes = True
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
-        # Only wire up if there is no Image Texture node yet (idempotent)
-        if not any(n.type == "TEX_IMAGE" for n in nodes):
+        # Find existing Image Texture node, or build the full node tree from scratch
+        tex = next((n for n in nodes if n.type == "TEX_IMAGE"), None)
+        if tex is None:
             nodes.clear()
             out  = nodes.new("ShaderNodeOutputMaterial");  out.location  = (300, 0)
             bsdf = nodes.new("ShaderNodeBsdfPrincipled");  bsdf.location = (0, 0)
             tex  = nodes.new("ShaderNodeTexImage");         tex.location  = (-300, 0)
-            try:
-                img = bpy.data.images.load(image_path, check_existing=True)
-                img.colorspace_settings.name = "sRGB"
-                # Store as relative path so the blend is portable across machines
-                if bpy.data.filepath:
-                    try:
-                        img.filepath = bpy.path.relpath(image_path)
-                    except ValueError:
-                        pass
-                tex.image = img
-            except Exception as exc:
-                print(f"[naranjos-level] WARNING: could not load {image_path}: {exc}")
             links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
             links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+        # Always update the image so stale materials from previous runs are fixed
+        try:
+            img = bpy.data.images.load(image_path, check_existing=True)
+            img.colorspace_settings.name = "sRGB"
+            if bpy.data.filepath:
+                try:
+                    img.filepath = bpy.path.relpath(image_path)
+                except ValueError:
+                    pass
+            tex.image = img
+        except Exception as exc:
+            print(f"[naranjos-level] WARNING: could not load {image_path}: {exc}")
 
     return mat
 
@@ -947,6 +948,12 @@ def assemble_naranjos_level(
         f"[naranjos-level] '{output_name}' assembled: "
         f"{n_verts} verts, {n_faces} triangles"
     )
+
+    # ── 8f. Hide source mesh so it doesn't overlap bsp_world in the viewport ──
+    src_obj = bpy.data.objects.get(bsp_source_name)
+    if src_obj is not None:
+        src_obj.hide_viewport = True
+        src_obj.hide_render   = True
 
     # ── 9. Write bmesh into a new Mesh datablock ───────────────────────────
     # Remove any stale bsp_world from previous runs.
