@@ -39,20 +39,12 @@ WALL_THICKNESS_BU = 0.22
 # Default inter-floor height used by halls/roofs unless their JSON overrides it.
 DEFAULT_INTER_FLOOR_HEIGHT_M = 2.28
 
-# After Blender imports the SVG the coordinates end up in Blender's internal
-# scale.  The raw imported dimensions for this map are approximately:
-#     borders ≈ 40 394 × 38 560  Blender units (before scaling)
-#
-# To bring the campus footprint to a playable Halo CE size we apply this
-# factor so the border perimeter lands around ~200 × 190 BU.
-#
-# ⚠  Tune this value if the XY footprint is too large or too small.
-#    Quick calibration:
-#       1. Run generate_naranjos()
-#       2. Measure a building you know the real-world size of (metres)
-#       3. expected_BU = real_metres / 0.55
-#       4. Adjust SVG_TO_BU so that  measured_BU ≈ expected_BU
-SVG_TO_BU = 0.005
+# Building metadata stores brick courses. One course is 6 cm in the map scale.
+BRICK_COURSE_H_M = 0.06
+
+# Blender's SVG importer already applies the SVG document width/viewBox scale.
+# Calibrated so the "limites" long side is 112 m = 203.6364 BU.
+SVG_TO_BU = 11.912609019
 
 # Curve resolution when converting SVG splines to mesh (segments per section).
 # Higher = smoother but more polygons.
@@ -67,6 +59,11 @@ def m_to_bu(metres: float) -> float:
 def bu_to_m(blam_units: float) -> float:
     """Convert Blam Units to metres."""
     return blam_units * M_PER_BU
+
+
+def floor_height_from_bricks(bricks_h: int) -> float:
+    """Return floor height in metres from the 6 cm brick-course count."""
+    return bricks_h * BRICK_COURSE_H_M
 
 
 # ---------------------------------------------------------------------------
@@ -112,11 +109,11 @@ def _infer_brick_height_m(buildings_data: list[dict]) -> float | None:
 
 
 def _building_pitch_m(building: dict, brick_height_m: float | None) -> float | None:
+    bricks_h = building.get("meta", {}).get("bricks_h")
+    if bricks_h:
+        return floor_height_from_bricks(int(bricks_h))
     if "floor_height" in building:
         return float(building["floor_height"])
-    bricks_h = building.get("meta", {}).get("bricks_h")
-    if brick_height_m is not None and bricks_h:
-        return float(bricks_h) * brick_height_m
     return None
 
 
@@ -475,7 +472,12 @@ def _build_building(
     """Generate a complete multi-floor building from a footprint curve."""
     name = building["name"]
     num_floors = building.get("floor", 1)
-    floor_height_bu = m_to_bu(building.get("floor_height", 2.28))
+    bricks_h = building.get("meta", {}).get("bricks_h")
+    if bricks_h:
+        floor_height_m = floor_height_from_bricks(int(bricks_h))
+    else:
+        floor_height_m = float(building.get("floor_height", DEFAULT_INTER_FLOOR_HEIGHT_M))
+    floor_height_bu = m_to_bu(floor_height_m)
     return _build_stacked_volume(
         curve_obj,
         name=name,
@@ -628,11 +630,18 @@ def generate_naranjos() -> None:
             continue
 
         floors = bldg.get("floor", 1)
-        fh = bldg["floor_height"]
+        bricks_h = bldg.get("meta", {}).get("bricks_h")
+        if bricks_h:
+            fh = floor_height_from_bricks(int(bricks_h))
+            height_src = f"bricks_h={bricks_h} × {BRICK_COURSE_H_M:.2f} m"
+        else:
+            fh = float(bldg.get("floor_height", DEFAULT_INTER_FLOOR_HEIGHT_M))
+            height_src = "floor_height"
         total_h_bu = m_to_bu(fh) * floors
         print(
             f"[naranjos] Building '{bldg['name']}': "
-            f"{floors} floor(s), {fh} m/floor → {total_h_bu:.2f} BU total"
+            f"{floors} floor(s), {fh} m/floor ({height_src}) "
+            f"→ {total_h_bu:.2f} BU total"
         )
 
         obj = _build_building(curve, bldg)
