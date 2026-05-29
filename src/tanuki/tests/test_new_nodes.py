@@ -450,7 +450,9 @@ class TestCurveOps:
         node = curve_circle() | fill_curve()
         assert isinstance(node, IRGeometryOp)
         assert node.op_type == "GeometryNodeFillCurve"
-        assert node.properties["group_id"] == 0
+        # GeometryNodeFillCurve has no "Group ID" socket — properties must be empty
+        # to avoid a KeyError crash when setup() runs inside Blender.
+        assert node.properties == {}
 
     def test_fillet_curve(self):
         node = curve_quadrilateral() | fillet_curve(count=3, radius=0.5, limit_radius=True)

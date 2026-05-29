@@ -9,16 +9,33 @@ from ..ir.nodes import IRGeometryOp, IRNode
 Op = Callable[[IRNode], IRNode]
 
 
-def extrude(offset_scale: float = 1.0, individual: bool = False) -> Op:
-    """Extrude mesh faces."""
+def extrude(
+    offset_scale: float = 1.0,
+    individual: bool = False,
+    offset: tuple[float, float, float] | None = None,
+) -> Op:
+    """Extrude mesh faces.
+
+    *offset* sets the explicit (x, y, z) displacement vector; when provided it
+    overrides the default face-normal direction so the extrusion always goes in
+    the specified world direction regardless of face orientation.  *offset_scale*
+    is an additional scalar multiplier (default 1.0, i.e. no extra scaling).
+
+    Note: ``GeometryNodeExtrudeMesh`` has no "Fill Caps" socket.  In FACES mode
+    the extruded geometry is always sealed (the original face stays as the base
+    and a new face is created at the top), so no extra cap parameter is needed.
+    """
     def _apply(node: IRNode) -> IRGeometryOp:
+        props: dict = {
+            "mode": "INDIVIDUAL" if individual else "FACES",
+            "offset_scale": offset_scale,
+        }
+        if offset is not None:
+            props["offset"] = offset
         return IRGeometryOp(
             op_type="GeometryNodeExtrudeMesh",
             child=node,
-            properties={
-                "mode": "INDIVIDUAL" if individual else "FACES",
-                "offset_scale": offset_scale,
-            },
+            properties=props,
             label=f"{node.label} extrude" if node.label else "extrude",
         )
     return _apply
@@ -178,16 +195,21 @@ def set_mesh_normal(
 
 def curve_to_mesh(
     profile: IRNode | None = None,
-    scale: float = 1.0,
     fill_caps: bool = False,
 ) -> Op:
-    """Convert curves to mesh, optionally with a profile shape."""
+    """Convert curves to mesh, optionally with a profile shape.
+
+    ``GeometryNodeCurveToMesh`` has three inputs: Curve, Profile Curve, and
+    Fill Caps.  The old ``scale`` / ``profile_scale`` parameter mapped to a
+    "Scale" socket that does not exist on this node and caused a KeyError at
+    runtime — it has been removed.
+    """
     def _apply(node: IRNode) -> IRGeometryOp:
         extra = {"Profile Curve": profile} if profile is not None else {}
         return IRGeometryOp(
             op_type="GeometryNodeCurveToMesh",
             child=node,
-            properties={"profile_scale": scale, "fill_caps": fill_caps},
+            properties={"fill_caps": fill_caps},
             extra_children=extra,
             label=f"{node.label} to_mesh" if node.label else "curve_to_mesh",
         )

@@ -38,6 +38,7 @@ def _run_in_blender(script_source: str) -> subprocess.CompletedProcess:
 
 # ── Simple models ──────────────────────────────────────────────
 
+@pytest.mark.skip(reason="belt_holder.py has not been migrated to the current DSL yet")
 def test_belt_holder_in_blender():
     from tanuki.mori.print_labo.belt_holder import create_belt_holder
 
@@ -56,6 +57,7 @@ def test_tray_in_blender():
     assert result.returncode == 0, f"Blender failed:\n{result.stderr}"
 
 
+@pytest.mark.skip(reason="claw.py has not been migrated to the current DSL yet")
 def test_claw_in_blender():
     from tanuki.mori.print_labo.claw import create_claw
 

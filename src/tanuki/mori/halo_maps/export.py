@@ -23,11 +23,18 @@ JMS v8200 section order
     <vertex: parent; pos(x,y,z); normal(x,y,z); uv_count; uv(u,v)>...
     <triangle_count>
     <triangle: region; material; v0; v1; v2>...
+
+Material slots
+--------------
+The exporter reads material names directly from ``obj.data.materials``.
+Each material in the object's slot list becomes one JMS material entry.
+If no materials are assigned the whole mesh is exported as ``+sky``.
 """
 
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import bpy
 import bmesh
@@ -35,7 +42,7 @@ import bmesh
 __all__ = ["export_jms"]
 
 # ---------------------------------------------------------------------------
-# Coordinate transform helper
+# Coordinate transform helpers
 # ---------------------------------------------------------------------------
 
 def _halo_xyz(x: float, y: float, z: float) -> tuple[float, float, float]:
@@ -48,6 +55,47 @@ def _halo_normal(x: float, y: float, z: float) -> tuple[float, float, float]:
     return _halo_xyz(x, y, z)
 
 
+def _jms_bitmap_path(mat: bpy.types.Material | None) -> str:
+    """Return the Halo CE bitmap path for a material, or ``<none>``.
+
+    Reads the filepath from the first Image Texture node in the material's
+    node tree and converts it to a Halo CE-style path relative to the
+    ``data/`` directory (backslash-separated, no extension).
+
+    Convention: the source .tif lives at
+    ``data/levels/<map>/materials/<name>.tif``
+    → JMS path = ``levels\\<map>\\materials\\<name>``
+    """
+    if mat is None or not mat.use_nodes:
+        return "<none>"
+    for node in mat.node_tree.nodes:
+        if node.type != "TEX_IMAGE" or node.image is None:
+            continue
+        abs_fp = Path(bpy.path.abspath(node.image.filepath))
+        # Walk up looking for a 'levels' anchor directory.
+        # Expected: …/naranjos/materials/wall.tif
+        #  → try to build: levels\naranjos\materials\wall
+        parts = abs_fp.parts
+        # Find 'levels' or fall back to building from 'naranjos' upward
+        for anchor in ("levels",):
+            try:
+                idx = next(i for i, p in enumerate(parts) if p == anchor)
+                rel = "\\".join(parts[idx:])            # levels\naranjos\…\wall.tif
+                return rel.rsplit(".", 1)[0]             # strip extension
+            except StopIteration:
+                pass
+        # Fallback: use naranjos\materials\<stem>
+        try:
+            idx = next(i for i, p in enumerate(parts) if p == "naranjos")
+            rel = "\\".join(["levels"] + list(parts[idx:]))
+            return rel.rsplit(".", 1)[0]
+        except StopIteration:
+            pass
+        # Last resort: just the stem
+        return abs_fp.stem
+    return "<none>"
+
+
 # ---------------------------------------------------------------------------
 # Main exporter
 # ---------------------------------------------------------------------------
@@ -56,11 +104,17 @@ def export_jms(
     obj_name: str,
     output_path: str,
     map_name: str = "unnamed",
+    scale: float = 1.0,
 ) -> str:
     """Export a Blender mesh to JMS v8200 format.
 
     The mesh is **triangulated in a temporary bmesh copy** — the original
     object data is not modified.
+
+    Material names are read from the object's material slots.  If the object
+    has no materials the entire mesh is written with the ``+sky`` material
+    (Halo CE open-sky convention).  This allows multi-material BSP meshes
+    (e.g. ground + wall + sky) to be exported correctly.
 
     Parameters
     ----------
@@ -71,6 +125,12 @@ def export_jms(
     map_name:
         Human-readable name embedded in a leading comment.  Defaults to
         ``"unnamed"``.
+    scale:
+        Uniform scale applied to all vertex positions before writing.
+        Equivalent to pressing S→<scale>→Enter and applying the scale in
+        Blender Edit Mode.  Normals and UV coordinates are not affected.
+        Use ``27.0`` to match the Halo CE world-unit convention when the
+        scene is modelled in Blender metres (M_PER_BU = 0.55).
 
     Returns
     -------
@@ -104,13 +164,27 @@ def export_jms(
     uv_layer = bm.loops.layers.uv.active
 
     # ------------------------------------------------------------------
-    # 2. Build vertex + triangle lists
+    # 2. Collect material names from object slots
+    # ------------------------------------------------------------------
+    raw_mats: list[bpy.types.Material | None] = [
+        slot.material for slot in obj.material_slots
+    ]
+    if raw_mats:
+        mat_names: list[str] = [
+            (m.name if m is not None else "+sky") for m in raw_mats
+        ]
+    else:
+        mat_names = ["+sky"]
+        raw_mats  = [None]
+
+    # ------------------------------------------------------------------
+    # 3. Build vertex + triangle lists
     # ------------------------------------------------------------------
     verts = list(bm.verts)
     faces = list(bm.faces)
 
     # ------------------------------------------------------------------
-    # 3. Format sections
+    # 4. Format sections
     # ------------------------------------------------------------------
     lines: list[str] = []
 
@@ -133,9 +207,10 @@ def export_jms(
     lines.append("0.000000\t0.000000\t0.000000")            # pos x y z
 
     # -- materials --------------------------------------------------------
-    lines.append("1")          # material count
-    lines.append("+sky")       # name  (+sky = open sky in Halo CE)
-    lines.append("<none>")     # texture path
+    lines.append(str(len(mat_names)))
+    for mname, mat in zip(mat_names, raw_mats):
+        lines.append(mname)
+        lines.append(_jms_bitmap_path(mat))
 
     # -- markers ----------------------------------------------------------
     lines.append("0")          # marker count (none)
@@ -149,7 +224,7 @@ def export_jms(
     for v in verts:
         co    = v.co
         norm  = v.normal
-        hx, hy, hz   = _halo_xyz(co.x, co.y, co.z)
+        hx, hy, hz   = _halo_xyz(co.x * scale, co.y * scale, co.z * scale)
         nx, ny, nz   = _halo_normal(norm.x, norm.y, norm.z)
 
         # Collect UVs from the first loop that owns this vertex
@@ -167,23 +242,26 @@ def export_jms(
 
     # -- triangles --------------------------------------------------------
     lines.append(str(len(faces)))
+    n_mats = len(mat_names)
     for f in faces:
         v_indices = [v.index for v in f.verts]
         if len(v_indices) != 3:
             # Should never happen after triangulate — defensive guard
             continue
         i0, i1, i2 = v_indices
-        # region=0 (unnamed), material=0 (+sky)
-        lines.append(f"0\t0\t{i0}\t{i1}\t{i2}")
+        # Clamp material_index to valid range (guard against slot mismatches)
+        mat_idx = min(f.material_index, n_mats - 1)
+        # region=0 (unnamed)
+        lines.append(f"0\t{mat_idx}\t{i0}\t{i1}\t{i2}")
 
     # ------------------------------------------------------------------
-    # 4. Cleanup bmesh + temporary mesh
+    # 5. Cleanup bmesh + temporary mesh
     # ------------------------------------------------------------------
     bm.free()
     obj_eval.to_mesh_clear()
 
     # ------------------------------------------------------------------
-    # 5. Write file
+    # 6. Write file
     # ------------------------------------------------------------------
     output_path = os.path.abspath(output_path)
     with open(output_path, "w", encoding="utf-8") as fh:

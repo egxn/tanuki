@@ -9,13 +9,19 @@ from ..ir.nodes import IRGeometryOp, IRNode
 Op = Callable[[IRNode], IRNode]
 
 
-def fill_curve(group_id: int = 0) -> Op:
-    """Fill closed curves to generate mesh faces."""
+def fill_curve() -> Op:
+    """Fill closed curves to generate mesh faces.
+
+    ``GeometryNodeFillCurve`` only has a "Curve" input and a "Mesh" output —
+    there is no "Group ID" socket.  The old ``group_id`` parameter caused the
+    compiler to emit ``node.inputs["Group ID"]`` which raised a ``KeyError``
+    inside Blender, crashing ``setup()`` and leaving the object as a flat plane.
+    """
     def _apply(node: IRNode) -> IRGeometryOp:
         return IRGeometryOp(
             op_type="GeometryNodeFillCurve",
             child=node,
-            properties={"group_id": group_id},
+            properties={},
             label=f"{node.label} fill" if node.label else "fill_curve",
         )
     return _apply
