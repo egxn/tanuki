@@ -3,7 +3,7 @@
 Usage (background mode):
     blender --background --factory-startup \
         --python src/tanuki/mori/halo_maps/naranjos/run_level.py \
-        -- [--output naranjos_level.blend] [--jms naranjos.jms] [--scale 27]
+        -- [--output blend/naranjos_level.blend] [--jms naranjos.jms] [--scale 27]
 
 Steps:
   1. setup_scene()             — metric units, standard collections
@@ -35,7 +35,7 @@ import bpy
 # ---------------------------------------------------------------------------
 # Parse optional CLI args passed after "--"
 # ---------------------------------------------------------------------------
-_blend_out = Path(__file__).parent / "naranjos_level.blend"
+_blend_out = Path(__file__).parent / "blend" / "naranjos_level.blend"
 _jms_out   = None    # None → level.py default (naranjos.jms in same dir)
 _jms_scale = 27.0    # Halo CE world-unit convention
 

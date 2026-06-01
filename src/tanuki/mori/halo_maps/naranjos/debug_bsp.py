@@ -12,13 +12,13 @@ Usage (from repo root):
 
     blender --background --factory-startup \\
         --python src/tanuki/mori/halo_maps/naranjos/debug_bsp.py \\
-        -- --output src/tanuki/mori/halo_maps/naranjos/debug_naranjos.blend
+        -- --output src/tanuki/mori/halo_maps/naranjos/blend/debug_naranjos.blend
 
 Or open the saved blend from a previous run and run this script on it::
 
-    blender --background src/tanuki/mori/halo_maps/naranjos/naranjos_dsl_updated.blend \\
+    blender --background src/tanuki/mori/halo_maps/naranjos/blend/naranjos_dsl_updated.blend \\
         --python src/tanuki/mori/halo_maps/naranjos/debug_bsp.py \\
-        -- --output debug_naranjos.blend --skip-generate
+        -- --output blend/debug_naranjos.blend --skip-generate
 
 Tips for manual inspection
 --------------------------
@@ -292,7 +292,7 @@ if __name__ == "__main__":
     # Parse args
     argv = sys.argv
     skip_generate = False
-    output_path = str(Path(__file__).parent / "debug_naranjos.blend")
+    output_path = str(Path(__file__).parent / "blend" / "debug_naranjos.blend")
     obj_name = "bsp_merged"
 
     if "--" in argv:

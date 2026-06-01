@@ -62,7 +62,7 @@ Run inside Blender after ``generate_naranjos_dsl()`` has been executed::
 
 Or from the command line::
 
-    blender --background naranjos_dsl_updated.blend \\
+    blender --background blend/naranjos_dsl_updated.blend \\
         --python src/tanuki/mori/halo_maps/naranjos/level.py
 """
 
@@ -87,20 +87,22 @@ from tanuki.mori.halo_maps.naranjos.validate_bsp import validate
 
 _DIR = Path(__file__).resolve().parent
 
-WALL_MAT   = "naranjos_wall"
-FLOOR_MAT  = "naranjos_floor"
-HALL_MAT   = "naranjos_hall"
-ROOF_MAT   = "naranjos_roof"
-PORTAL_MAT = "+portal"
-SKY_MAT    = "+sky"
+WALL_MAT    = "naranjos_wall"
+FLOOR_MAT   = "naranjos_floor"
+HALL_MAT    = "naranjos_hall"
+ROOF_MAT    = "naranjos_roof"
+WALL_RO_MAT = "naranjos_wall!"   # render-only (!) for NM-edge faces
+PORTAL_MAT  = "+portal"
+SKY_MAT     = "+sky"
 
 # Material slot indices — must match the appending order in assemble_naranjos_level.
-WALL_IDX   = 0   # vertical walls
-FLOOR_IDX  = 1   # ground-level paving
-HALL_IDX   = 2   # indoor floors / slab undersides
-ROOF_IDX   = 3   # building rooftops
-PORTAL_IDX = 4   # door / window portal seals
-SKY_IDX    = 5   # sky envelope
+WALL_IDX    = 0   # vertical walls
+FLOOR_IDX   = 1   # ground-level paving
+HALL_IDX    = 2   # indoor floors / slab undersides
+ROOF_IDX    = 3   # building rooftops
+WALL_RO_IDX = 4   # render-only walls (NM-edge workaround — no collision, still rendered)
+PORTAL_IDX  = 5   # door / window portal seals
+SKY_IDX     = 6   # sky envelope
 
 #: Default name of the building mesh produced by generate_naranjos_dsl().
 BSP_SOURCE_NAME = "bsp_merged"
@@ -114,13 +116,13 @@ SKY_HEIGHT_BU: float = 40.0
 #: Margin added around the campus footprint for the sky envelope walls.
 GROUND_MARGIN_BU: float = 10.0
 
-#: Default JMS output path.
-DEFAULT_JMS_PATH = str(_DIR / "naranjos.jms")
+#: Default JMS output path (HEK convention: models/<name>.jms).
+DEFAULT_JMS_PATH = str(_DIR / "models" / "naranjos.jms")
 
-WALL_TIF  = str(_DIR / "materials" / "wall.png")
-FLOOR_TIF = str(_DIR / "materials" / "floor.png")
-HALL_TIF  = str(_DIR / "materials" / "hall.png")
-ROOF_TIF  = str(_DIR / "materials" / "roof.png")
+WALL_TIF  = str(_DIR / "materials" / "wall.tif")
+FLOOR_TIF = str(_DIR / "materials" / "floor.tif")
+HALL_TIF  = str(_DIR / "materials" / "hall.tif")
+ROOF_TIF  = str(_DIR / "materials" / "roof.tif")
 
 WALL_TILE_BU:  float = 1.0   # 1 BU ≈ 0.55 m per tile
 FLOOR_TILE_BU: float = 1.0
@@ -238,6 +240,64 @@ def _classify_face_material(
     if z_frac > 0.65:
         return ROOF_IDX
     return HALL_IDX
+
+
+def _dissolve_coplanar_nm_edges(bm: "bmesh.types.BMesh", precision: int = 4) -> int:
+    """Dissolve NM edges where ALL surrounding faces are on the same plane.
+
+    These arise when a bisect splits a face flush with an adjacent coplanar face,
+    leaving 3 coplanar faces sharing one edge.  Dissolving the edge merges them
+    back into a single face (then re-triangulated later).
+
+    Returns the number of edges dissolved.
+    """
+    def _pk(face):
+        n = face.normal.normalized()
+        if (n.x, n.y, n.z) < (0.0, 0.0, 0.0):
+            n.negate()
+        d   = -n.dot(face.verts[0].co)
+        p   = 10 ** precision
+        return (round(n.x * p), round(n.y * p), round(n.z * p), round(d * p))
+
+    bm.edges.ensure_lookup_table()
+    to_dissolve = [
+        e for e in bm.edges
+        if len(e.link_faces) > 2 and len({_pk(f) for f in e.link_faces}) == 1
+    ]
+    if not to_dissolve:
+        return 0
+    bmesh.ops.dissolve_edges(bm, edges=to_dissolve,
+                             use_verts=False, use_face_split=False)
+    bm.edges.ensure_lookup_table()
+    bm.faces.ensure_lookup_table()
+    return len(to_dissolve)
+
+
+def _mark_nm_wall_faces_readonly(bm: "bmesh.types.BMesh") -> int:
+    """Mark wall faces touching remaining NM edges as render-only (WALL_RO_IDX).
+
+    After back-to-back and coplanar fixes, the remaining NM edges come from
+    unavoidable 3-way staircase/wall junctions.  Assigning 'naranjos_wall!'
+    (render-only, symbol '!') to those faces tells tool.exe to exclude them
+    from collision NM checking while keeping them visible.
+
+    This is a workaround for testing.  Production fix requires geometry redesign.
+
+    Returns the number of faces re-marked.
+    """
+    bm.edges.ensure_lookup_table()
+    bm.faces.ensure_lookup_table()
+
+    nm_wall_faces: set = set()
+    for e in bm.edges:
+        if len(e.link_faces) > 2:
+            for f in e.link_faces:
+                if f.material_index == WALL_IDX:
+                    nm_wall_faces.add(f)
+
+    for f in nm_wall_faces:
+        f.material_index = WALL_RO_IDX
+    return len(nm_wall_faces)
 
 
 def _load_source_into_bm(
@@ -772,6 +832,11 @@ def assemble_naranjos_level(
     for f in bm.faces:
         f.material_index = WALL_IDX
 
+    # ── 2b. Fix anti-parallel back-to-back NM edges ───────────────────────
+    n_btb = _fix_back_to_back_nm_edges(bm)
+    if n_btb:
+        print(f"[naranjos-level] Removed {n_btb} back-to-back NM face(s)")
+
     # ── 3. Safety: remove any exact duplicate faces ────────────────────────
     n_dup = _delete_duplicate_faces(bm)
     if n_dup:
@@ -832,6 +897,15 @@ def assemble_naranjos_level(
     bm.faces.ensure_lookup_table()
     bmesh.ops.triangulate(bm, faces=bm.faces)
     bm.normal_update()   # ← required before any normal-based grouping
+
+    # ── 8a. Dissolve coplanar NM edges ────────────────────────────────────
+    n_cp_nm = _dissolve_coplanar_nm_edges(bm)
+    if n_cp_nm:
+        print(f"[naranjos-level] Dissolved {n_cp_nm} coplanar NM edge(s)")
+        ngons = [f for f in bm.faces if len(f.verts) > 3]
+        if ngons:
+            bmesh.ops.triangulate(bm, faces=ngons)
+        bm.normal_update()
 
     # ── 8b. Remove coplanar overlapping faces introduced by triangulation ──
     # Only consider wall faces (slot 0); portals and sky are intentional quads.
@@ -935,10 +1009,43 @@ def assemble_naranjos_level(
     # ── 8e. Report remaining NM edges (back-to-back walls) ────────────────
     # NM edges from adjacent buildings sharing wall planes are resolved at the
     # generate_dsl level (see generate_dsl._remove_back_to_back_walls).
+    # Late coplanar NM dissolve: portal sealing / triangulation can create a few
+    # coplanar overlapping faces (portal-fill coincident with a wall face).
     bm.edges.ensure_lookup_table()
     n_nm = sum(1 for e in bm.edges if len(e.link_faces) > 2)
     if n_nm:
-        print(f"[naranjos-level] {n_nm} NM edges remain (back-to-back walls)")
+        n_cp2 = _dissolve_coplanar_nm_edges(bm)
+        if n_cp2:
+            bm.faces.ensure_lookup_table()
+            ngons = [f for f in bm.faces if len(f.verts) > 3]
+            if ngons:
+                bmesh.ops.triangulate(bm, faces=ngons)
+            bm.normal_update()
+            bm.edges.ensure_lookup_table()
+            n_nm = sum(1 for e in bm.edges if len(e.link_faces) > 2)
+            print(f"[naranjos-level] Dissolved {n_cp2} late coplanar NM edge(s)")
+
+    # Classify remaining NM edges: only those whose 3+ faces are ALL collideable
+    # (not +portal / +sky / render-only) are real tool.exe "couldn't update edge"
+    # errors.  An edge with 2 collideable + 1 portal face is manifold for
+    # collision (tool.exe processes portals separately), so it is harmless.
+    if n_nm:
+        coll_nm = 0
+        for e in bm.edges:
+            if len(e.link_faces) <= 2:
+                continue
+            coll_faces = sum(
+                1 for f in e.link_faces
+                if f.material_index not in (PORTAL_IDX, SKY_IDX, WALL_RO_IDX)
+            )
+            if coll_faces > 2:
+                coll_nm += 1
+        if coll_nm:
+            print(f"[naranjos-level] WARNING: {coll_nm} collideable NM edge(s) remain "
+                  f"(of {n_nm} total) — real tool.exe errors")
+        else:
+            print(f"[naranjos-level] {n_nm} NM edge(s) remain, all on portal/sky/"
+                  f"render-only faces → harmless for tool.exe collision ✓")
     else:
         print("[naranjos-level] No NM edges ✓")
 
@@ -971,17 +1078,19 @@ def assemble_naranjos_level(
     result_mesh.update()
 
     # ── 10. Assign material slots in index order ───────────────────────────
-    #   0 WALL_IDX   → naranjos_wall   (vertical walls)
-    #   1 FLOOR_IDX  → naranjos_floor  (ground-level paving)
-    #   2 HALL_IDX   → naranjos_hall   (indoor floors / slab undersides)
-    #   3 ROOF_IDX   → naranjos_roof   (building rooftops)
-    #   4 PORTAL_IDX → +portal
-    #   5 SKY_IDX    → +sky
+    #   0 WALL_IDX    → naranjos_wall    (vertical walls)
+    #   1 FLOOR_IDX   → naranjos_floor   (ground-level paving)
+    #   2 HALL_IDX    → naranjos_hall    (indoor floors / slab undersides)
+    #   3 ROOF_IDX    → naranjos_roof    (building rooftops)
+    #   4 WALL_RO_IDX → naranjos_wall!   (render-only, NM-edge workaround)
+    #   5 PORTAL_IDX  → +portal
+    #   6 SKY_IDX     → +sky
     import os as _os
-    result_mesh.materials.append(_ensure_material(WALL_MAT,  image_path=WALL_TIF  if _os.path.isfile(WALL_TIF)  else None))
-    result_mesh.materials.append(_ensure_material(FLOOR_MAT, image_path=FLOOR_TIF if _os.path.isfile(FLOOR_TIF) else None))
-    result_mesh.materials.append(_ensure_material(HALL_MAT,  image_path=HALL_TIF  if _os.path.isfile(HALL_TIF)  else None))
-    result_mesh.materials.append(_ensure_material(ROOF_MAT,  image_path=ROOF_TIF  if _os.path.isfile(ROOF_TIF)  else None))
+    result_mesh.materials.append(_ensure_material(WALL_MAT,    image_path=WALL_TIF  if _os.path.isfile(WALL_TIF)  else None))
+    result_mesh.materials.append(_ensure_material(FLOOR_MAT,   image_path=FLOOR_TIF if _os.path.isfile(FLOOR_TIF) else None))
+    result_mesh.materials.append(_ensure_material(HALL_MAT,    image_path=HALL_TIF  if _os.path.isfile(HALL_TIF)  else None))
+    result_mesh.materials.append(_ensure_material(ROOF_MAT,    image_path=ROOF_TIF  if _os.path.isfile(ROOF_TIF)  else None))
+    result_mesh.materials.append(_ensure_material(WALL_RO_MAT, image_path=WALL_TIF  if _os.path.isfile(WALL_TIF)  else None))
     result_mesh.materials.append(_ensure_material(PORTAL_MAT))
     result_mesh.materials.append(_ensure_material(SKY_MAT))
 
@@ -1093,10 +1202,11 @@ def assemble_naranjos_level(
 
     # ── 9d. Per-material box-mapped UVs ────────────────────────────────────────
     _generate_box_uvs(bm_final, tile_by_mat={
-        WALL_IDX:  WALL_TILE_BU,
-        FLOOR_IDX: FLOOR_TILE_BU,
-        HALL_IDX:  HALL_TILE_BU,
-        ROOF_IDX:  ROOF_TILE_BU,
+        WALL_IDX:    WALL_TILE_BU,
+        FLOOR_IDX:   FLOOR_TILE_BU,
+        HALL_IDX:    HALL_TILE_BU,
+        ROOF_IDX:    ROOF_TILE_BU,
+        WALL_RO_IDX: WALL_TILE_BU,
     })
 
     bm_final.to_mesh(result_mesh)

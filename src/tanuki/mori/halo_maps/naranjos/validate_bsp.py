@@ -2,7 +2,7 @@
 
 Run from the repository root:
 
-    blender --background src/tanuki/mori/halo_maps/naranjos/naranjos_dsl_updated.blend \
+    blender --background src/tanuki/mori/halo_maps/naranjos/blend/naranjos_dsl_updated.blend \
         --python src/tanuki/mori/halo_maps/naranjos/validate_bsp.py -- --object bsp_merged
 """
 

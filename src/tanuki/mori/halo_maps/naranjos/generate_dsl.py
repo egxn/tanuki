@@ -57,6 +57,9 @@ from tanuki.backends.blender.compiler import compile_to_source
 # ---------------------------------------------------------------------------
 
 _DIR = Path(__file__).resolve().parent
+_CONFIG_DIR = _DIR / "config"   # JSON building/door/window/etc. definitions
+_SVG_DIR    = _DIR / "svg"      # map.svg source curves
+_BLEND_DIR  = _DIR / "blend"    # generated .blend files
 
 M_PER_BU = 0.55
 WALL_THICKNESS_BU = 0.22
@@ -143,7 +146,7 @@ def _parse_svg_label_map(svg_path: str | Path) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 def _load_buildings() -> list[dict]:
-    with open(_DIR / "buildings.json", "r", encoding="utf-8") as f:
+    with open(_CONFIG_DIR / "buildings.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     for b in data:
         if "floors" in b and "floor" not in b:
@@ -153,22 +156,22 @@ def _load_buildings() -> list[dict]:
 
 
 def _load_borders() -> dict:
-    with open(_DIR / "borders.json", "r", encoding="utf-8") as f:
+    with open(_CONFIG_DIR / "borders.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def _load_roofs_halls() -> list[dict]:
-    with open(_DIR / "roofs_halls.json", "r", encoding="utf-8") as f:
+    with open(_CONFIG_DIR / "roofs_halls.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def _load_stairs() -> dict:
-    with open(_DIR / "stairs.json", "r", encoding="utf-8") as f:
+    with open(_CONFIG_DIR / "stairs.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def _load_objects() -> dict:
-    with open(_DIR / "objects.json", "r", encoding="utf-8") as f:
+    with open(_CONFIG_DIR / "objects.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -184,7 +187,7 @@ def _load_doors() -> dict[str, list[dict]]:
             "svg": {"x": ..., "y": ..., "width": ..., "height": ...}
         }
     """
-    doors_path = _DIR / "doors.json"
+    doors_path = _CONFIG_DIR / "doors.json"
     if not doors_path.exists():
         return {}
     with open(doors_path, "r", encoding="utf-8") as f:
@@ -205,7 +208,7 @@ def _load_windows() -> dict[str, list[dict]]:
             "svg": {"x": ..., "y": ..., "width": ..., "height": ...}
         }
     """
-    windows_path = _DIR / "windows.json"
+    windows_path = _CONFIG_DIR / "windows.json"
     if not windows_path.exists():
         return {}
     with open(windows_path, "r", encoding="utf-8") as f:
@@ -411,7 +414,7 @@ def _entry_z_start_bu(
 # ---------------------------------------------------------------------------
 
 def _import_svg() -> tuple[list[bpy.types.Object], dict[str, str]]:
-    svg_path = _DIR / "map.svg"
+    svg_path = _SVG_DIR / "map.svg"
     label_map = _parse_svg_label_map(svg_path)
 
     before = set(bpy.data.objects)
@@ -1537,7 +1540,7 @@ def _move_to_collection(obj: bpy.types.Object, coll_name: str) -> None:
 
 
 def _cleanup_svg_collection() -> None:
-    svg_stem = Path(_DIR / "map.svg").stem.lower()
+    svg_stem = Path(_SVG_DIR / "map.svg").stem.lower()
     for coll in list(bpy.data.collections):
         if svg_stem in coll.name.lower() and len(coll.objects) == 0:
             bpy.data.collections.remove(coll)
@@ -2541,6 +2544,38 @@ def _union_horizontal_faces(
     return levels_done
 
 
+def _remove_interior_faces(obj: bpy.types.Object) -> int:
+    """Delete faces buried inside the solid using Blender's interior-face select.
+
+    The staircases (and back-to-back walls) are built as separate solid boxes
+    that abut.  Where two solids touch, their contact faces become *interior* —
+    buried inside the combined volume.  After the global vertex weld these
+    buried faces are what create the 3-way (non-manifold) edges: an interior
+    riser / abutment face shares an edge with two surface faces.
+
+    ``mesh.select_interior_faces`` is Blender's purpose-built detector for
+    exactly this situation (faces enclosed by solid on both sides).  Removing
+    them turns each cluster of abutting boxes into a clean manifold shell.
+
+    Returns the number of faces removed.
+    """
+    n_before = len(obj.data.polygons)
+
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="DESELECT")
+    bpy.ops.mesh.select_mode(type="FACE")
+    bpy.ops.mesh.select_interior_faces()
+    bpy.ops.mesh.delete(type="FACE")
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    return n_before - len(obj.data.polygons)
+
+
 def _create_merged_bsp(
     objects: list[bpy.types.Object],
     name: str = "bsp_merged",
@@ -2818,6 +2853,39 @@ def _create_merged_bsp(
     merged = bpy.data.objects.new(name, out_mesh)
     bpy.context.collection.objects.link(merged)
     _move_to_collection(merged, "BSP")
+
+    # ── Remove interior (buried) faces from abutting solids ──────────────────
+    # NM edges in bsp_merged come almost entirely from staircase boxes and
+    # back-to-back walls abutting other solids: their contact faces are buried
+    # inside the combined volume.  Delete them so each cluster becomes a clean
+    # manifold shell (see _remove_interior_faces).
+    def _count_nm(o):
+        m = o.data
+        m.calc_loop_triangles()
+        from collections import Counter
+        ec = Counter()
+        for poly in m.polygons:
+            vs = list(poly.vertices)
+            for k in range(len(vs)):
+                a, b = vs[k], vs[(k + 1) % len(vs)]
+                ec[(min(a, b), max(a, b))] += 1
+        return sum(1 for c in ec.values() if c > 2)
+
+    nm_before = _count_nm(merged)
+    n_interior = _remove_interior_faces(merged)
+    if n_interior:
+        bpy.context.view_layer.objects.active = merged
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.mesh.remove_doubles(threshold=MERGE_DISTANCE_BU)
+        bpy.ops.mesh.normals_make_consistent(inside=False)
+        bpy.ops.object.mode_set(mode="OBJECT")
+    nm_after = _count_nm(merged)
+    print(
+        f"[naranjos-dsl] Interior-face removal: deleted {n_interior} buried face(s); "
+        f"NM edges {nm_before} → {nm_after}",
+        flush=True,
+    )
 
     for mesh in source_meshes:
         bpy.data.meshes.remove(mesh)
@@ -3395,7 +3463,7 @@ if __name__ == "__main__":
 
     generate_naranjos_dsl()
 
-    blend_out = _DIR / "naranjos_dsl.blend"
+    blend_out = _BLEND_DIR / "naranjos_dsl.blend"
     for i, arg in enumerate(sys.argv):
         if arg == "--output" and i + 1 < len(sys.argv):
             blend_out = Path(sys.argv[i + 1])

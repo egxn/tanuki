@@ -29,6 +29,9 @@ from mathutils import Vector
 # ---------------------------------------------------------------------------
 
 _DIR = Path(__file__).resolve().parent
+_CONFIG_DIR = _DIR / "config"   # JSON building/roof/border definitions
+_SVG_DIR    = _DIR / "svg"      # map.svg source curves
+_BLEND_DIR  = _DIR / "blend"    # generated .blend files
 
 # 1 Blam Unit ≈ 0.55 metres
 M_PER_BU = 0.55
@@ -71,7 +74,7 @@ def floor_height_from_bricks(bricks_h: int) -> float:
 # ---------------------------------------------------------------------------
 
 def _load_buildings() -> list[dict]:
-    with open(_DIR / "buildings.json", "r", encoding="utf-8") as f:
+    with open(_CONFIG_DIR / "buildings.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     for b in data:
         # Normalise the inconsistent key: "floors" vs "floor"
@@ -82,12 +85,12 @@ def _load_buildings() -> list[dict]:
 
 
 def _load_borders() -> dict:
-    with open(_DIR / "borders.json", "r", encoding="utf-8") as f:
+    with open(_CONFIG_DIR / "borders.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def _load_roofs_halls() -> list[dict]:
-    with open(_DIR / "roofs_halls.json", "r", encoding="utf-8") as f:
+    with open(_CONFIG_DIR / "roofs_halls.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -162,7 +165,7 @@ def _parse_svg_label_map(svg_path: str | Path) -> dict[str, str]:
 
 def _import_svg() -> tuple[list[bpy.types.Object], dict[str, str]]:
     """Import *map.svg* and return (new_objects, label→id map)."""
-    svg_path = _DIR / "map.svg"
+    svg_path = _SVG_DIR / "map.svg"
     label_map = _parse_svg_label_map(svg_path)
 
     before = set(bpy.data.objects)
@@ -581,7 +584,7 @@ def _cleanup_svg_leftovers(svg_objects: list[bpy.types.Object]) -> None:
     bpy.ops.object.delete()
 
     # The SVG importer creates a collection named after the file (e.g. "map")
-    svg_stem = Path(_DIR / "map.svg").stem.lower()
+    svg_stem = Path(_SVG_DIR / "map.svg").stem.lower()
     for coll in list(bpy.data.collections):
         if svg_stem in coll.name.lower() and len(coll.objects) == 0:
             bpy.data.collections.remove(coll)
@@ -726,7 +729,7 @@ if __name__ == "__main__":
     generate_naranjos()
 
     # Save .blend file next to the script (or accept --output via argv)
-    blend_out = _DIR / "naranjos.blend"
+    blend_out = _BLEND_DIR / "naranjos.blend"
     for i, arg in enumerate(sys.argv):
         if arg == "--output" and i + 1 < len(sys.argv):
             blend_out = Path(sys.argv[i + 1])

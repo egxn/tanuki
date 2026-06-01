@@ -196,13 +196,19 @@ def export_jms(
     lines.append("8200")
 
     # -- nodes ------------------------------------------------------------
-    # Minimal: 1 frame node with identity rotation and zero position.
-    # JMS convention: quaternion (i, j, k, real)
+    # JMS v8200 (< 8205) node block layout:
+    #   <node list checksum>   ← integer, 0 for a trivial single-frame skeleton
+    #   <node count>
+    #   per node: <name> <first-child index> <next-sibling index> <rot> <pos>
+    # Note: the old format stores *child* + *sibling* indices (2 ints), NOT a
+    # parent index — that is the >= 8205 layout.  Writing 3 ints here shifts
+    # every later token by one and makes tool.exe / the Blender toolset misparse
+    # the file ("invalid literal for int(): 'frame'").
+    lines.append("0")          # node list checksum (trivial skeleton)
     lines.append("1")          # node count
     lines.append("frame")      # name
-    lines.append("-1")         # parent index  (-1 = root)
-    lines.append("-1")         # first child
-    lines.append("-1")         # sibling index
+    lines.append("-1")         # first child  (-1 = none)
+    lines.append("-1")         # next sibling (-1 = none)
     lines.append("0.000000\t0.000000\t0.000000\t1.000000")  # rot i j k w
     lines.append("0.000000\t0.000000\t0.000000")            # pos x y z
 
@@ -234,11 +240,18 @@ def export_jms(
             uv_u = loop_uv.uv.x
             uv_v = loop_uv.uv.y
 
-        lines.append("0")    # parent node index (frame = 0)
+        # JMS v8200 (< 8205) per-vertex layout:
+        #   <node 0 index> <pos x y z> <normal x y z>
+        #   <node 1 index> <node 1 weight> <tex u> <tex v>
+        # There is NO "uv pair count" field in v8200 (that belongs to >= 8205).
+        # A vertex bound only to the frame node uses node 1 index = -1, weight 0.
+        lines.append("0")          # node 0 index (frame)
         lines.append(f"{hx:.6f}\t{hy:.6f}\t{hz:.6f}")
         lines.append(f"{nx:.6f}\t{ny:.6f}\t{nz:.6f}")
-        lines.append("1")    # uv pair count
+        lines.append("-1")         # node 1 index (no second influence)
+        lines.append("0.000000")   # node 1 weight
         lines.append(f"{uv_u:.6f}\t{uv_v:.6f}")
+        lines.append("0")          # vertex flags (unused int, required for v >= 8199)
 
     # -- triangles --------------------------------------------------------
     lines.append(str(len(faces)))
