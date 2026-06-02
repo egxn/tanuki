@@ -84,9 +84,29 @@ class CuttabilityReport:
         """At-risk regions a bridge could rescue (one bridge each)."""
         return sum(1 for r in self.regions if r.bridgeable)
 
+    # ── islands (real information loss) vs thin material (fragility) ────────
+    @property
+    def island_count(self) -> int:
+        """Enclosed islands that would *fall out* (true information loss)."""
+        return sum(1 for r in self.regions if r.kind == "isolated")
+
+    @property
+    def island_px(self) -> int:
+        return sum(r.area for r in self.regions if r.kind == "isolated")
+
+    @property
+    def thin_px(self) -> int:
+        """Material in thin / weak-neck areas (may tear — depends on print size)."""
+        return sum(r.area for r in self.regions if r.kind == "weak-neck")
+
+    @property
+    def loses_information(self) -> bool:
+        """True if any island ≥ the minimum feature would fall out."""
+        return self.island_count > 0
+
     @property
     def cuttable(self) -> bool:
-        """True ⇒ cut as-is, no information lost."""
+        """True ⇒ cut as-is, no information lost (no islands, no thin material)."""
         return (
             self.material_px > 0
             and self.at_risk_px == 0
@@ -103,14 +123,19 @@ class CuttabilityReport:
             f"  material components: {self.n_material_components}"
             f"{' (single piece)' if self.single_piece else ''}",
         ]
-        if self.at_risk_px:
-            iso = sum(1 for r in self.regions if r.kind == "isolated")
-            weak = len(self.regions) - iso
+        if self.island_count:
             lines.append(
-                f"  at-risk material: {self.at_risk_px} px "
-                f"({100 * self.at_risk_fraction:.1f}%) in {len(self.regions)} region(s) "
-                f"— {iso} isolated, {weak} weak-neck"
+                f"  islands that fall out: {self.island_count} "
+                f"({self.island_px} px) — real information loss"
             )
+        else:
+            lines.append("  islands that fall out: none")
+        if self.thin_px:
+            lines.append(
+                f"  thin material (may tear at this size): {self.thin_px} px "
+                f"({100 * self.thin_px / self.material_px:.1f}%)"
+            )
+        if self.at_risk_px:
             lines.append(
                 f"    rescuable by bridges: {self.needs_bridges}/{len(self.regions)}"
             )
@@ -138,7 +163,15 @@ def safe_material(mask: StencilMask, *, min_feature_px: float = 2.0) -> np.ndarr
     material = mask.material
     if not material.any():
         return np.zeros_like(material)
-    r = max(1, int(round(min_feature_px / 2.0)))
+    r = int(round(min_feature_px / 2.0))
+    if r < 1:
+        # The minimum feature is sub-pixel at this scale: nothing is "too thin",
+        # so only *topologically* enclosed islands are at risk. Safe = material
+        # components that touch the frame (no erosion).
+        labels, n = ndimage.label(material, structure=_MAT_STRUCT)
+        if n == 0:
+            return np.zeros_like(material)
+        return np.isin(labels, list(_border_labels(labels)))
     # border_value=1 → the sheet edge counts as solid material (the frame anchor)
     core = ndimage.binary_erosion(material, structure=_MAT_STRUCT,
                                   iterations=r, border_value=1)
@@ -159,6 +192,31 @@ def at_risk_material(mask: StencilMask, *, min_feature_px: float = 2.0) -> np.nd
     return mask.material & ~safe_material(mask, min_feature_px=min_feature_px)
 
 
+def island_mask(mask: StencilMask, *, min_feature_px: float = 2.0,
+                min_island_area: int | None = None) -> np.ndarray:
+    """Boolean mask of the **islands** that would fall out (enclosed material).
+
+    Enclosed material components (not touching the frame) of area ≥
+    ``min_island_area`` — the real information loss, ignoring sub-feature
+    speckle. Useful for highlighting where pieces detach.
+    """
+    from scipy import ndimage
+
+    if min_island_area is None:
+        min_island_area = max(1, round(min_feature_px ** 2))
+    material = mask.material
+    labels, n = ndimage.label(material, structure=_MAT_STRUCT)
+    if n == 0:
+        return np.zeros_like(material)
+    border = _border_labels(labels)
+    enclosed = [lab for lab in range(1, n + 1) if lab not in border]
+    if not enclosed:
+        return np.zeros_like(material)
+    sizes = np.atleast_1d(ndimage.sum_labels(np.ones_like(labels), labels, index=enclosed))
+    keep = [lab for lab, s in zip(enclosed, sizes) if s >= min_island_area]
+    return np.isin(labels, keep)
+
+
 def _subkerf_holes(cut: np.ndarray, min_feature_px: float) -> tuple[int, int]:
     from scipy import ndimage
 
@@ -175,15 +233,24 @@ def _subkerf_holes(cut: np.ndarray, min_feature_px: float) -> tuple[int, int]:
     return int(small.sum()), int(sizes[small].sum())
 
 
-def analyze_cuttability(mask: StencilMask, *,
-                        min_feature_px: float = 2.0) -> CuttabilityReport:
+def analyze_cuttability(mask: StencilMask, *, min_feature_px: float = 2.0,
+                        min_island_area: int | None = None) -> CuttabilityReport:
     """Evaluate whether ``mask`` can be cut without losing information.
 
     Returns a :class:`CuttabilityReport`: how much material is anchored vs
     at-risk, every at-risk region classified (isolated island vs weak neck) and
     whether a bridge could rescue it, plus any sub-kerf holes that won't cut.
+
+    ``min_island_area`` (default ``round(min_feature_px**2)``) drops sub-feature
+    speckle — the tiny material flecks trapped between near-touching halftone
+    dots — from the at-risk tally; they are negligible (and removed anyway by
+    :func:`optimize_mask`), so counting thousands of them as lost islands is
+    misleading.  Use :attr:`CuttabilityReport.island_count` for true fall-out.
     """
     from scipy import ndimage
+
+    if min_island_area is None:
+        min_island_area = max(1, round(min_feature_px ** 2))
 
     material = mask.material
     sheet_px = int(material.size)
@@ -192,7 +259,6 @@ def analyze_cuttability(mask: StencilMask, *,
     safe = safe_material(mask, min_feature_px=min_feature_px)
     anchored_px = int(safe.sum())
     risk = material & ~safe
-    at_risk_px = int(risk.sum())
 
     mlabels, mn = ndimage.label(material, structure=_MAT_STRUCT)
     mborder = _border_labels(mlabels) if mn else set()
@@ -200,6 +266,7 @@ def analyze_cuttability(mask: StencilMask, *,
                     if safe.any() else None)
 
     regions: list[AtRiskRegion] = []
+    at_risk_px = 0
     rlabels, rn = ndimage.label(risk, structure=_MAT_STRUCT)
     slices = ndimage.find_objects(rlabels)              # per-region bbox
     for lab in range(1, rn + 1):
@@ -209,6 +276,10 @@ def analyze_cuttability(mask: StencilMask, *,
         y0, x0 = sl[0].start, sl[1].start
         sub = rlabels[sl] == lab
         ly, lx = np.nonzero(sub)
+        area = int(lx.size)
+        if area < min_island_area:                      # negligible speckle
+            continue
+        at_risk_px += area
         # the material component this risk piece sits in
         mlab = int(mlabels[sl][ly[0], lx[0]])
         kind = "isolated" if mlab not in mborder else "weak-neck"
@@ -218,7 +289,7 @@ def analyze_cuttability(mask: StencilMask, *,
         else:
             d, bridgeable = float("inf"), False
         regions.append(AtRiskRegion(
-            id=lab, area=int(lx.size),
+            id=lab, area=area,
             centroid=(float(lx.mean() + x0), float(ly.mean() + y0)),
             bbox=(int(lx.min() + x0), int(ly.min() + y0),
                   int(lx.max() + x0), int(ly.max() + y0)),

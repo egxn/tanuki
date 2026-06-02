@@ -27,6 +27,7 @@ from .cuttability import (
     CuttabilityReport,
     analyze_cuttability,
     at_risk_material,
+    island_mask,
     safe_material,
 )
 
@@ -50,4 +51,5 @@ __all__ = [
     "AtRiskRegion",
     "safe_material",
     "at_risk_material",
+    "island_mask",
 ]

@@ -47,7 +47,7 @@ from . import (
     write_svg,
 )
 from . import separation as sep
-from .fabrication import StencilMask
+from .fabrication import StencilMask, island_mask
 from .image_io import load_image, resize, to_grayscale
 from . import adjustments as adj
 from .patterns import PATTERN_NAMES
@@ -132,23 +132,88 @@ def _lookup(uid: str) -> Path:
 @app.get("/api/preview")
 def preview(id: str, method: str = "grayscale", pattern: str = "dots",
             cell: float = 6.0, contrast: float = 1.0, gamma: float = 1.0,
-            invert: bool = False, max_side: int = 480) -> JSONResponse:
-    """Fast un-optimised vector preview + cuttability verdict."""
+            invert: bool = False, max_side: int = 480,
+            out_size: str = "none", landscape: bool = False,
+            min_feature_mm: float = 0.5, show_islands: bool = False) -> JSONResponse:
+    """Fast un-optimised vector preview + **per-plate** cuttability verdict.
+
+    Each layer is a separate plate (cut on its own sheet), so cuttability is
+    analysed per layer — not on the union of all inks. The minimum feature is a
+    real tool size in **mm**: when an ``out_size`` (paper) is chosen it is
+    converted to pixels at that print scale, so "thin material" depends on how
+    big you actually print. Speckle below the cell size is ignored, and islands
+    (real fall-out) are reported apart from thin material.
+    """
+    from .sizing import paper_size
+
     path = _lookup(id)
     st = _stencil(path, method=method, pattern=pattern, cell=cell,
                   contrast=contrast, gamma=gamma, invert=invert,
                   max_side=min(max_side, 700), optimize=False, registration="none")
-    rep = analyze_cuttability(StencilMask.from_stencil(st), min_feature_px=2.0)
+    w, h = int(round(st.width)), int(round(st.height))
+
+    # minimum feature → pixels at the chosen print scale (else treat mm as px)
+    if out_size and out_size != "none":
+        ow, oh = paper_size(out_size, landscape=landscape)
+        mm_per_px = min(ow / w, oh / h)               # fit-within scale
+        min_feature_px = min_feature_mm / mm_per_px
+        scale_note = f"@ {out_size}{'↔' if landscape else ''}, {min_feature_mm}mm tool"
+    else:
+        min_feature_px = max(min_feature_mm, 1.0)     # mm read as px when unsized
+        scale_note = f"@ {min_feature_px:.0f}px (set an output size for real mm)"
+
+    import numpy as np
+    mia = max(round(min_feature_px ** 2), round(cell ** 2))   # ignore speckle
+    layers, total_islands, unbridgeable, max_thin = [], 0, 0, 0.0
+    islands_union = np.zeros((h, w), bool) if show_islands else None
+    for layer in st.layers:
+        m = StencilMask.from_layer(layer, (w, h))
+        rep = analyze_cuttability(m, min_feature_px=min_feature_px, min_island_area=mia)
+        thin = rep.thin_px / rep.material_px if rep.material_px else 0.0
+        stuck = sum(1 for r in rep.regions      # islands with nowhere to bridge to
+                    if r.kind == "isolated" and not r.bridgeable)
+        total_islands += rep.island_count
+        unbridgeable += stuck
+        max_thin = max(max_thin, thin)
+        layers.append({"name": layer.name, "color": list(layer.color),
+                       "count": len(layer), "islands": rep.island_count,
+                       "thin": round(thin, 3), "bridgeable": rep.needs_bridges})
+        if islands_union is not None:
+            islands_union |= island_mask(m, min_feature_px=min_feature_px,
+                                         min_island_area=mia)
+    # green = nothing falls out; amber = islands but all bridgeable on export; red = real loss
+    status = "loss" if unbridgeable > 0 else ("bridge" if total_islands else "clean")
+
+    svg = to_svg(st, background="white")
+    if islands_union is not None and islands_union.any():
+        svg = svg.replace("</svg>", _islands_overlay(islands_union) + "</svg>")
     return JSONResponse({
-        "svg": to_svg(st, background="white"),
-        "layers": [{"name": l.name, "color": list(l.color), "count": len(l)}
-                   for l in st.layers],
+        "svg": svg,
+        "layers": layers,
         "primitives": st.primitive_count,
-        "cuttable": rep.cuttable,
-        "score": round(rep.score, 3),
-        "at_risk": round(rep.at_risk_fraction, 3),
-        "regions": len(rep.regions),
+        "status": status,
+        "islands": total_islands,
+        "thin": round(max_thin, 3),
+        "scale_note": scale_note,
     })
+
+
+def _islands_overlay(mask) -> str:
+    """A transparent red PNG of the island pixels, as an SVG ``<image>`` element."""
+    import base64
+
+    import numpy as np
+    from PIL import Image
+
+    h, w = mask.shape
+    rgba = np.zeros((h, w, 4), np.uint8)
+    rgba[mask] = (230, 20, 20, 210)
+    buf = io.BytesIO()
+    Image.fromarray(rgba, "RGBA").save(buf, "PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return (f'<image x="0" y="0" width="{w}" height="{h}" '
+            f'style="image-rendering:pixelated" '
+            f'href="data:image/png;base64,{b64}"/>')
 
 
 @app.post("/api/export")
@@ -157,20 +222,32 @@ def export(id: str = Form(...), method: str = Form("grayscale"),
            contrast: float = Form(1.0), gamma: float = Form(1.0),
            invert: bool = Form(False), max_side: int = Form(1000),
            fmt: str = Form("svg"), optimize: bool = Form(True),
-           registration: str = Form("none"), width_mm: float = Form(0.0),
+           registration: str = Form("none"),
+           out_size: str = Form("none"), landscape: bool = Form(False),
            paper: str = Form("none")):
     """Heavy, on-demand render → downloadable file (or .zip of sheets).
 
-    Runs in FastAPI's threadpool (sync def), so the event loop stays responsive.
+    ``out_size`` sets the **physical output size** to a paper (e.g. ``tabloid``)
+    in the chosen ``landscape`` orientation; ``paper`` is the **sheet to split
+    onto** (e.g. ``a4``). Runs in FastAPI's threadpool so the loop stays free.
     """
+    from .sizing import paper_size
+
     if fmt not in EXPORT_FORMATS:
         raise HTTPException(400, f"bad format {fmt!r}")
     path = _lookup(id)
     st = _stencil(path, method=method, pattern=pattern, cell=cell,
                   contrast=contrast, gamma=gamma, invert=invert,
                   max_side=max_side, optimize=optimize, registration=registration)
-    if width_mm and width_mm > 0:
-        st = fit_to_physical(st, width_mm=width_mm)
+
+    # physical output size: fit within the chosen paper, keeping aspect
+    if out_size and out_size != "none":
+        ow, oh = paper_size(out_size, landscape=landscape)
+        st = fit_to_physical(st, width_mm=ow, height_mm=oh)
+    elif paper and paper != "none":
+        # no explicit output size but splitting → size to one sheet
+        ow, oh = paper_size(paper, landscape=landscape)
+        st = fit_to_physical(st, width_mm=ow, height_mm=oh)
 
     out = _STORE / f"export_{uuid4().hex[:8]}"
     writer = {"svg": write_svg, "png": write_png, "dxf": write_dxf,
@@ -179,11 +256,7 @@ def export(id: str = Form(...), method: str = Form("grayscale"),
               "pdf": ".pdf", "stl": ".stl", "blender": ".py"}[fmt]
 
     if paper and paper != "none":
-        if not (width_mm and width_mm > 0):                # need a physical size
-            from .sizing import printable_area
-            bw, _ = printable_area(paper)
-            st = fit_to_physical(st, width_mm=bw)
-        tiles = tile_to_paper(st, paper)
+        tiles = tile_to_paper(st, paper, landscape=landscape)
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for t in tiles:

@@ -134,9 +134,11 @@ control over their parameters.
   stencil can be cut **without losing information** via morphological
   reconstruction: erode material by the min feature, anchor frame-touching
   cores, reconstruct the robustly-connected (*safe*) material — the rest is
-  *at-risk* (islands that fall out + weak necks that tear), each classified and
-  flagged bridgeable. Reports `score`, `at_risk_fraction`, sub-kerf holes and a
-  verdict; CLI `--analyze` (exit 0/1).
+  *at-risk*, split into **islands** (`island_count` / `island_mask` — pieces
+  that fall out = real information loss) and **thin material** (`thin_px` —
+  fragility, scale-dependent). Speckle below `min_island_area` is ignored.
+  Reports `score`, sub-kerf holes and a verdict; CLI `--analyze` (exit 0/1).
+  Analyse plates separately for multi-ink designs (each is cut on its own sheet).
 - [x] **Phase 8 — Physical size & sheets.** `fit_to_physical` / `scale_stencil`
   put the design into millimetres (SVG `mm`, PDF mm→points, DXF/STL in mm);
   `poster` / `tile_to_paper` / `sheets_needed` split a large design across real
@@ -145,9 +147,10 @@ control over their parameters.
   is decoupled from size — screen in pixels, then scale.
 - [x] **Phase 9 — Web GUI (optional).** A small FastAPI app — `gui.py` +
   `gui_index.html`, run with `python -m tanuki.mori.stencil_lab.gui` — with live
-  **vector** preview (un-optimised, layers as toggleable `<g>` groups), a live
-  cuttability verdict, and a background export (any format, physical size, paper
-  tiling → `.zip`).
+  **vector** preview (zoom + spinner), toggleable `<g>` plates, a **show-islands**
+  red overlay, a **per-plate, size-aware** cuttability verdict (islands vs thin
+  material, scaled by output size + min-feature-mm), and a background export with
+  an **output paper size + orientation** and optional **split on sheets** (→ `.zip`).
 
 ## Dependencies
 

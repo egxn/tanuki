@@ -198,28 +198,44 @@ def _gui_screenshot(rgb, w, h) -> None:
         print("gui: skipped (no chromium on PATH)")
         return
     try:
-        from tanuki.mori.stencil_lab.gui import _PAGE
+        from tanuki.mori.stencil_lab.gui import _PAGE, _islands_overlay
     except (ImportError, SystemExit):
         print("gui: skipped (FastAPI not installed)")
         return
+    import numpy as np
 
-    st = sl.build_stencil(sep.cmyk(rgb), (w, h), pattern="dots", cell=6)
+    cell = 6
+    st = sl.build_stencil(sep.cmyk(rgb), (w, h), pattern="dots", cell=cell)
     svg = sl.to_svg(st, background="white")
-    rep = fab.analyze_cuttability(fab.StencilMask.from_stencil(st), min_feature_px=2)
-    rows = "".join(
-        f'<label><input type=checkbox checked style="width:auto">'
-        f'<span class=sw style="background:rgb({c[0]},{c[1]},{c[2]})"></span>'
-        f'{n} <small>({k})</small></label>'
-        for n, c, k in [(l.name, l.color, len(l)) for l in st.layers])
-    verdict = (f'✗ not cuttable — score {rep.score * 100:.0f}%, at-risk '
-               f'{rep.at_risk_fraction * 100:.0f}%, {len(rep.regions)} region(s), '
-               f'{st.primitive_count} prims')
+    # per-plate cuttability + island overlay, exactly like /api/preview
+    mia = max(4, round(cell ** 2))
+    rows, total_islands, max_thin = [], 0, 0.0
+    islands = np.zeros((h, w), bool)
+    for L in st.layers:
+        m = fab.StencilMask.from_layer(L, (w, h))
+        r = fab.analyze_cuttability(m, min_feature_px=2, min_island_area=mia)
+        thin = r.thin_px / r.material_px if r.material_px else 0.0
+        total_islands += r.island_count
+        max_thin = max(max_thin, thin)
+        islands |= fab.island_mask(m, min_feature_px=2, min_island_area=mia)
+        isl = f' · <b>{r.island_count} isl</b>' if r.island_count else ''
+        rows.append(
+            f'<label><input type=checkbox checked style="width:auto">'
+            f'<span class=sw style="background:rgb({L.color[0]},{L.color[1]},{L.color[2]})">'
+            f'</span>{L.name} <small>({len(L)}{isl})</small></label>')
+    if islands.any():                                  # show the islands feature ON
+        svg = svg.replace("</svg>", _islands_overlay(islands) + "</svg>")
+    cls, verdict = ("warn",
+                    f'● {total_islands} island(s) — bridged on export · '
+                    f'thin {max_thin * 100:.0f}% · {st.primitive_count} prims')
     page = (_PAGE
             .replace('<div id="holder"><em>upload a photo to start</em></div>',
                      f'<div id="holder">{svg}</div>')
             .replace('<div id="verdict">load an image…</div>',
-                     f'<div id="verdict" class="bad">{verdict}</div>')
-            .replace('<div id="layers"></div>', f'<div id="layers">{rows}</div>'))
+                     f'<div id="verdict" class="{cls}">{verdict}</div>')
+            .replace('<button id="toggleisl">◍ Show islands</button>',
+                     '<button id="toggleisl" class="on">◉ Hide islands</button>')
+            .replace('<div id="layers"></div>', f'<div id="layers">{"".join(rows)}</div>'))
     demo = HERE / "_gui_demo.html"
     demo.write_text(page, encoding="utf-8")
     try:

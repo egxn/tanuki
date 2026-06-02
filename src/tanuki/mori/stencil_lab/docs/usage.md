@@ -424,23 +424,28 @@ reconstructs what is robustly connected; the rest is **at-risk** (islands that
 fall out + weak necks that tear):
 
 ```python
-report = fab.analyze_cuttability(mask, min_feature_px=2.0)
-report.cuttable          # True ⇒ cut as-is, nothing lost
-report.score             # fraction of material that survives (1.0 = perfect)
-report.at_risk_fraction  # share that would detach/tear
+report = fab.analyze_cuttability(mask, min_feature_px=2.0, min_island_area=None)
+report.loses_information  # True ⇒ some island ≥ min feature falls out
+report.island_count       # islands (pieces that fall out) — the real loss
+report.thin_px            # material in thin/fragile areas (may tear)
+report.score              # fraction of material that survives (1.0 = perfect)
 for r in report.regions:
-    r.kind               # "isolated" | "weak-neck"
-    r.area, r.bridgeable # px, and whether a bridge can rescue it
+    r.kind                # "isolated" (island) | "weak-neck" (thin)
+    r.area, r.bridgeable  # px, and whether a bridge can rescue it
 print(report.summary())
-
-# the raw masks, if you want to visualise or post-process them
-safe = fab.safe_material(mask, min_feature_px=2.0)     # anchored to frame
-risk = fab.at_risk_material(mask, min_feature_px=2.0)  # would be lost
 ```
 
-Also `sub-kerf holes` (cut features below the kerf that won't cut) are counted;
-`analyze_cuttability` is read-only — pair it with `optimize_mask` to *fix* what
-it reports, then re-run to confirm `at_risk_px` dropped.
+`min_island_area` (default `round(min_feature_px**2)`) drops sub-feature
+**speckle** — the flecks trapped between near-touching halftone dots — so the
+island count reflects real fall-out, not thousands of negligible specks. The
+report cleanly separates **islands** (information loss) from **thin material**
+(fragility, which the optimised export bridges away).
+
+For a **multi-ink** design, analyse each plate on its own (it's cut on its own
+sheet) rather than the union: `analyze_cuttability(StencilMask.from_layer(layer,
+size))`. The raw `safe_material` / `at_risk_material` masks are available if you
+want to visualise them. `analyze_cuttability` is read-only — pair it with
+`optimize_mask` to *fix* what it reports.
 
 **Back to vectors** — the optimised mask becomes cut polygons for export:
 

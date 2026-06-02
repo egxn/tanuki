@@ -459,15 +459,24 @@ cd src/tanuki && python -m tanuki.mori.stencil_lab.gui   # → http://127.0.0.1:
 
 Upload a photo and the panel drives the same pipeline live:
 
-* **Live vector preview** — the preview runs *un-optimised* at low resolution
-  (~0.3 s) and returns inline **SVG**, so it stays crisp at any zoom.
+* **Live vector preview** — runs *un-optimised* at low resolution (~0.3 s) and
+  returns inline **SVG**, crisp at any zoom; a spinner shows while it renders.
+* **Zoom** — `− ⤢ +` buttons and mouse-wheel zoom on the preview.
 * **Toggle colour plates** — each separation channel is an SVG `<g>` group, so
   the layer checkboxes show/hide plates instantly (no re-render).
-* **Cuttability verdict** — the green/red bar is live `analyze_cuttability`
-  (score, at-risk %, region count).
-* **Export** — pick a format, optional **physical width (mm)** and **paper**
-  size; the heavy cut-optimised render runs in the background and downloads a
-  file (or a `.zip` of sheets for a poster).
+* **Per-plate, size-aware cuttability** — each plate (it's cut on its own sheet)
+  is analysed separately. The verdict separates **islands** (pieces that fall
+  out = real information loss) from **thin material** (fragility): green =
+  nothing lost, amber = islands present but *bridged on export*, red =
+  unbridgeable loss. The **Min feature / tool (mm)** is a real size: combined
+  with the **Output size**, "thin material" depends on how big you actually
+  print — the same halftone reads as 89 % thin on A6 but 0 % on a pliego.
+* **Show islands** — a toggle button overlays the islands (the pieces that
+  would fall out) in red right on the preview (see the screenshot above), so you
+  can see *where* the trouble is; it scales and zooms with the artwork.
+* **Output size & split** — set the physical **Output size** to a paper
+  (e.g. *tabloid*) with an orientation, and optionally **Split on paper** sheets
+  (e.g. *A4*); the background export downloads a file (or a `.zip` of sheets).
 
 It's pure glue over the library functions — see [`gui.py`](../gui.py) (the page
 markup lives in [`gui_index.html`](../gui_index.html)).

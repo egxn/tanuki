@@ -996,6 +996,46 @@ def test_ring_has_one_isolated_bridgeable_island():
     assert reg.bridgeable
     assert reg.area == pytest.approx(np.pi * 18 ** 2, rel=0.1)
     assert rep.needs_bridges == 1
+    # the big centre is a real island (information loss), not thin material
+    assert rep.island_count == 1 and rep.island_px > 0
+    assert rep.thin_px == 0 and rep.loses_information
+
+
+def test_island_mask_marks_enclosed_material():
+    yy, xx = np.mgrid[0:80, 0:80]
+    r = np.hypot(xx - 40, yy - 40)
+    cut = (r >= 18) & (r <= 30)              # ring → centre disc is the island
+    im = fab.island_mask(fab.StencilMask(cut), min_feature_px=2)
+    assert im.dtype == bool and im.shape == (80, 80)
+    assert im[40, 40]                        # centre disc flagged
+    assert not im[0, 0]                      # border material is safe
+    assert im.sum() == pytest.approx(np.pi * 18 ** 2, rel=0.1)
+    # all-solid sheet → no islands
+    assert not fab.island_mask(fab.StencilMask(np.zeros((20, 20), bool))).any()
+
+
+def test_min_island_area_drops_speckle():
+    # one big enclosed island + a 1-px speckle island
+    cut = np.zeros((60, 60), bool)
+    yy, xx = np.mgrid[0:60, 0:60]
+    cut[(np.hypot(xx - 30, yy - 30) >= 10) & (np.hypot(xx - 30, yy - 30) <= 18)] = True
+    cut[2, 2] = False  # (already material) — make a speckle: ring around a single px
+    cut[0:5, 0:5] = True
+    cut[2, 2] = False  # 1-px material island enclosed by a 5x5 cut block
+    big = fab.analyze_cuttability(fab.StencilMask(cut), min_feature_px=2, min_island_area=1)
+    filt = fab.analyze_cuttability(fab.StencilMask(cut), min_feature_px=2, min_island_area=4)
+    assert big.island_count > filt.island_count        # speckle dropped by the filter
+
+
+def test_islands_vs_thin_material_are_separated():
+    # a thin straight isthmus of material (weak-neck), no enclosed island
+    mat = np.zeros((80, 80), bool)
+    mat[0:6, :] = True            # anchored strip
+    mat[6:60, 39:41] = True       # 2-px neck hanging down (no enclosed pocket)
+    rep = fab.analyze_cuttability(fab.StencilMask(~mat), min_feature_px=6)
+    assert rep.island_count == 0          # nothing falls out…
+    assert rep.thin_px > 0                # …but it's flagged as thin/fragile
+    assert not rep.loses_information
 
 
 def _weak_neck_mask():
@@ -1301,9 +1341,12 @@ def test_gui_index_and_preview():
     uid = _upload_tanuki(c)
     d = c.get("/api/preview", params={"id": uid, "method": "cmyk",
                                       "pattern": "dots", "cell": 7, "max_side": 320}).json()
+    # per-plate analysis: one entry per CMYK channel, with its own island count
     assert [l["name"] for l in d["layers"]] == ["cyan", "magenta", "yellow", "key"]
+    assert all("islands" in l and "thin" in l for l in d["layers"])
     assert d["svg"].count("<g ") == 4          # one toggleable group per plate
-    assert "cuttable" in d and 0.0 <= d["score"] <= 1.0
+    assert d["status"] in ("clean", "bridge", "loss")
+    assert isinstance(d["islands"], int) and 0.0 <= d["thin"] <= 1.0
     assert c.get("/api/preview", params={"id": "bogus"}).status_code == 404
 
 
@@ -1315,9 +1358,23 @@ def test_gui_export_svg_and_paper_zip():
                "pattern": "line_screen", "cell": 8, "fmt": "svg",
                "optimize": "true", "max_side": 300})
     assert r.status_code == 200 and r.headers["content-type"] == "image/svg+xml"
-    # poster: physical width split across A4 → a zip of sheets
+    # output size = tabloid (landscape) split across A4 → a zip of sheets
     r = c.post("/api/export", data={"id": uid, "method": "grayscale", "pattern": "dots",
                "cell": 8, "fmt": "pdf", "optimize": "true", "max_side": 260,
-               "width_mm": "600", "paper": "a4"})
+               "out_size": "tabloid", "landscape": "true", "paper": "a4"})
     assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
     assert len(zipfile.ZipFile(io.BytesIO(r.content)).namelist()) > 1
+
+
+def test_gui_islands_overlay_toggle():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    base = {"id": uid, "method": "grayscale", "pattern": "dots",
+            "cell": 4, "max_side": 280}
+    off = c.get("/api/preview", params={**base, "show_islands": "false"}).json()
+    on = c.get("/api/preview", params={**base, "show_islands": "true"}).json()
+    assert "<image" not in off["svg"]
+    # the overlay is a transparent red PNG embedded in the SVG, scaling with it
+    assert "<image" in on["svg"] and "data:image/png;base64," in on["svg"]
+    # the toggle button is wired up in the page
+    assert 'id="toggleisl"' in c.get("/").text

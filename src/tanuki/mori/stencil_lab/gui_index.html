@@ -2,18 +2,26 @@
 <title>Stencil Lab</title>
 <style>
  body{font:14px system-ui,sans-serif;margin:0;display:flex;height:100vh;color:#222}
- #panel{width:300px;padding:16px;overflow:auto;background:#f4f4f5;box-sizing:border-box}
- #stage{flex:1;display:flex;align-items:center;justify-content:center;background:#ddd;overflow:auto}
- #stage svg{max-width:96%;max-height:96%;background:#fff;box-shadow:0 2px 12px #0003}
+ #panel{width:310px;padding:16px;overflow:auto;background:#f4f4f5;box-sizing:border-box}
+ #stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;background:#ddd;overflow:auto}
+ #holder{transition:zoom .05s} #stage svg{background:#fff;box-shadow:0 2px 12px #0003}
  label{display:block;margin:10px 0 2px;font-weight:600}
  input,select,button{width:100%;box-sizing:border-box}
  .row{display:flex;gap:8px}.row>*{flex:1}
  #layers label{display:flex;align-items:center;gap:6px;font-weight:400;margin:3px 0}
  .sw{width:12px;height:12px;border:1px solid #999;display:inline-block}
  #verdict{margin-top:10px;padding:8px;border-radius:6px;font-weight:600}
- .ok{background:#d6f5d6}.bad{background:#fde0e0}
+ .ok{background:#d6f5d6}.warn{background:#fdf0d0}.bad{background:#fde0e0}
  button{margin-top:6px;padding:8px;cursor:pointer}
+ button.on{background:#e23;color:#fff;border-color:#a11}
  small{color:#666;font-weight:400}
+ #zoombar{position:absolute;top:10px;right:10px;display:flex;gap:4px;z-index:5}
+ #zoombar button{width:34px;margin:0;padding:4px;font-weight:700}
+ #busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+   background:#ddddddaa;z-index:8;font-weight:600}
+ .spin{width:22px;height:22px;border:3px solid #999;border-top-color:#333;border-radius:50%;
+   display:inline-block;margin-right:8px;animation:r .8s linear infinite;vertical-align:middle}
+ @keyframes r{to{transform:rotate(360deg)}}
 </style></head><body>
 <div id="panel">
  <h3>Stencil Lab</h3>
@@ -31,73 +39,112 @@
  <select id="registration"><option>none</option><option>target</option>
    <option>crosshair</option><option>corner</option></select>
  <div id="verdict">load an image…</div>
- <label>Layers</label><div id="layers"></div>
+ <button id="toggleisl">◍ Show islands</button>
+ <label>Layers (plates) <small>islands = pieces that fall out</small></label>
+ <div id="layers"></div>
+ <hr>
+ <label>Output size (paper)</label><select id="out_size"></select>
+ <label><input type="checkbox" id="landscape" style="width:auto"> Landscape</label>
+ <label>Min feature / tool (mm)</label>
+ <input type="number" id="min_feature_mm" value="0.5" min="0.05" step="0.05">
  <hr>
  <label>Export format</label><select id="fmt"></select>
  <label><input type="checkbox" id="optimize" checked style="width:auto"> Optimize for cutting</label>
- <label>Physical width (mm, 0 = none)</label>
- <input type="number" id="width_mm" value="0" min="0">
- <label>Split on paper</label><select id="paper"></select>
+ <label>Split on paper (sheets)</label><select id="paper"></select>
  <button id="export">Export ⤓</button>
 </div>
-<div id="stage"><div id="holder"><em>upload a photo to start</em></div></div>
+<div id="stage">
+ <div id="zoombar"><button id="zout">−</button><button id="zreset">⤢</button><button id="zin">+</button></div>
+ <div id="busy"><span class="spin"></span><span id="busytx">rendering…</span></div>
+ <div id="holder"><em>upload a photo to start</em></div>
+</div>
 <script>
 const $=id=>document.getElementById(id);
-let imgId=null, timer=null;
+let imgId=null, timer=null, zoom=1, showIslands=false;
 const PATTERNS=__PATTERNS__, METHODS=__METHODS__, FORMATS=__FORMATS__, PAPERS=__PAPERS__;
 for(const m of METHODS) method.add(new Option(m,m));
 for(const p of PATTERNS) pattern.add(new Option(p,p));
 for(const f of FORMATS) fmt.add(new Option(f,f));
-paper.add(new Option("none","none")); for(const p of PAPERS) paper.add(new Option(p,p));
+out_size.add(new Option("none (pixels)","none"));
+paper.add(new Option("none","none"));
+for(const p of PAPERS){ out_size.add(new Option(p,p)); paper.add(new Option(p,p)); }
+
 const params=()=>({id:imgId,method:method.value,pattern:pattern.value,cell:cell.value,
   contrast:contrast.value,gamma:gamma.value,invert:invert.checked,
-  registration:registration.value});
+  registration:registration.value,out_size:out_size.value,
+  landscape:landscape.checked,min_feature_mm:min_feature_mm.value,
+  show_islands:showIslands});
+$('toggleisl').addEventListener('click',()=>{
+  showIslands=!showIslands;
+  toggleisl.className=showIslands?'on':'';
+  toggleisl.textContent=(showIslands?'◉ Hide islands':'◍ Show islands');
+  render();});
 function debounce(){clearTimeout(timer);timer=setTimeout(render,180);}
-for(const el of [method,pattern,cell,contrast,gamma,invert,registration])
+for(const el of [method,pattern,cell,contrast,gamma,invert,registration,
+                 out_size,landscape,min_feature_mm])
   el.addEventListener('input',()=>{cellv.textContent=cell.value;debounce();});
+
 $('file').addEventListener('change',async e=>{
+  busytx.textContent='loading…'; busy.style.display='flex';
   const fd=new FormData();fd.append('file',e.target.files[0]);
   const r=await fetch('/api/upload',{method:'POST',body:fd});
   imgId=(await r.json()).id;render();});
+
+function applyZoom(){ holder.style.zoom=zoom; }
+zin.onclick =()=>{zoom=Math.min(8,zoom*1.25);applyZoom();};
+zout.onclick=()=>{zoom=Math.max(.1,zoom/1.25);applyZoom();};
+zreset.onclick=()=>{zoom=1;applyZoom();};
+stage.addEventListener('wheel',e=>{ if(!imgId)return; e.preventDefault();
+  zoom=Math.min(8,Math.max(.1, zoom*(e.deltaY<0?1.1:0.9))); applyZoom(); },{passive:false});
+
 async function render(){
   if(!imgId)return;
-  const q=new URLSearchParams(params());
-  const r=await fetch('/api/preview?'+q);
-  if(!r.ok){verdict.textContent='error';return;}
-  const d=await r.json();
-  holder.innerHTML=d.svg;
-  const v=$('verdict');
-  v.className=d.cuttable?'ok':'bad';
-  v.textContent=(d.cuttable?'✓ cuttable':'✗ not cuttable')+
-    ` — score ${(d.score*100).toFixed(0)}%, at-risk ${(d.at_risk*100).toFixed(0)}%, `+
-    `${d.regions} region(s), ${d.primitives} prims`;
-  const L=$('layers');L.innerHTML='';
-  for(const ly of d.layers){
-    const id='L_'+ly.name;
-    const row=document.createElement('label');
-    row.innerHTML=`<input type=checkbox checked data-g="${ly.name}" style="width:auto">`+
-      `<span class=sw style="background:rgb(${ly.color.join(',')})"></span>`+
-      `${ly.name} <small>(${ly.count})</small>`;
-    L.appendChild(row);
-    row.querySelector('input').addEventListener('change',ev=>{
-      const g=holder.querySelector('g[id="'+ev.target.dataset.g+'"]');
-      if(g)g.style.display=ev.target.checked?'':'none';});
-  }
+  busytx.textContent='rendering preview…'; busy.style.display='flex';
+  try{
+    const r=await fetch('/api/preview?'+new URLSearchParams(params()));
+    if(!r.ok){verdict.textContent='error';return;}
+    const d=await r.json();
+    holder.innerHTML=d.svg; applyZoom();
+    const v=$('verdict');
+    const thin=(d.thin*100).toFixed(0);
+    const note=` <small>${d.scale_note}</small>`;
+    if(d.status==='clean'){ v.className='ok';
+      v.innerHTML=`✓ no islands lost · thin ${thin}%`+note; }
+    else if(d.status==='bridge'){ v.className='warn';
+      v.innerHTML=`● ${d.islands} island(s) — bridged on export · thin ${thin}%`+note; }
+    else { v.className='bad';
+      v.innerHTML=`✗ ${d.islands} island(s), some can't be bridged · thin ${thin}%`+note; }
+    const L=$('layers');L.innerHTML='';
+    for(const ly of d.layers){
+      const row=document.createElement('label');
+      const isl=ly.islands? ` · <b>${ly.islands} isl</b>`:'';
+      row.innerHTML=`<input type=checkbox checked data-g="${ly.name}" style="width:auto">`+
+        `<span class=sw style="background:rgb(${ly.color.join(',')})"></span>`+
+        `${ly.name} <small>(${ly.count}${isl})</small>`;
+      L.appendChild(row);
+      row.querySelector('input').addEventListener('change',ev=>{
+        const g=holder.querySelector('g[id="'+ev.target.dataset.g+'"]');
+        if(g)g.style.display=ev.target.checked?'':'none';});
+    }
+  } finally { busy.style.display='none'; }
 }
+
 $('export').addEventListener('click',async()=>{
   if(!imgId)return;
-  const fd=new FormData();const p=params();
+  const fd=new FormData();const p=params();   // includes out_size, landscape, …
   for(const k in p)fd.append(k,p[k]);
   fd.append('fmt',fmt.value);fd.append('optimize',optimize.checked);
-  fd.append('max_side','1000');fd.append('width_mm',width_mm.value);
-  fd.append('paper',paper.value);
-  $('export').textContent='Rendering…';$('export').disabled=true;
-  const r=await fetch('/api/export',{method:'POST',body:fd});
-  const blob=await r.blob();const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;
-  const cd=r.headers.get('Content-Disposition')||'';
-  a.download=(cd.match(/filename="(.+?)"/)||[,'stencil.'+fmt.value])[1];
-  a.click();URL.revokeObjectURL(url);
-  $('export').textContent='Export ⤓';$('export').disabled=false;});
+  fd.append('max_side','1000');fd.append('paper',paper.value);
+  busytx.textContent='exporting…'; busy.style.display='flex';
+  $('export').disabled=true;
+  try{
+    const r=await fetch('/api/export',{method:'POST',body:fd});
+    const blob=await r.blob();const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;
+    const cd=r.headers.get('Content-Disposition')||'';
+    a.download=(cd.match(/filename="(.+?)"/)||[,'stencil.'+fmt.value])[1];
+    a.click();URL.revokeObjectURL(url);
+  } finally { busy.style.display='none'; $('export').disabled=false; }
+});
 cellv.textContent=cell.value;
 </script></body></html>
