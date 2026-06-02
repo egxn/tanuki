@@ -1,0 +1,5 @@
+  verdict: NOT directly cuttable
+  material anchored to frame: 5175/53540 px (9.7%)
+  material components: 132
+  at-risk material: 48365 px (90.3%) in 347 region(s) — 130 isolated, 217 weak-neck
+    rescuable by bridges: 347/347

@@ -1,0 +1,103 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>Stencil Lab</title>
+<style>
+ body{font:14px system-ui,sans-serif;margin:0;display:flex;height:100vh;color:#222}
+ #panel{width:300px;padding:16px;overflow:auto;background:#f4f4f5;box-sizing:border-box}
+ #stage{flex:1;display:flex;align-items:center;justify-content:center;background:#ddd;overflow:auto}
+ #stage svg{max-width:96%;max-height:96%;background:#fff;box-shadow:0 2px 12px #0003}
+ label{display:block;margin:10px 0 2px;font-weight:600}
+ input,select,button{width:100%;box-sizing:border-box}
+ .row{display:flex;gap:8px}.row>*{flex:1}
+ #layers label{display:flex;align-items:center;gap:6px;font-weight:400;margin:3px 0}
+ .sw{width:12px;height:12px;border:1px solid #999;display:inline-block}
+ #verdict{margin-top:10px;padding:8px;border-radius:6px;font-weight:600}
+ .ok{background:#d6f5d6}.bad{background:#fde0e0}
+ button{margin-top:6px;padding:8px;cursor:pointer}
+ small{color:#666;font-weight:400}
+</style></head><body>
+<div id="panel">
+ <h3>Stencil Lab</h3>
+ <input type="file" id="file" accept="image/*">
+ <label>Separation</label><select id="method"></select>
+ <label>Pattern</label><select id="pattern"></select>
+ <label>Cell / period <small id="cellv"></small></label>
+ <input type="range" id="cell" min="3" max="24" value="6" step="1">
+ <div class="row"><div><label>Contrast</label>
+   <input type="range" id="contrast" min="0.5" max="2.5" value="1" step="0.1"></div>
+ <div><label>Gamma</label>
+   <input type="range" id="gamma" min="0.3" max="2.5" value="1" step="0.1"></div></div>
+ <label><input type="checkbox" id="invert" style="width:auto"> Invert</label>
+ <label>Registration</label>
+ <select id="registration"><option>none</option><option>target</option>
+   <option>crosshair</option><option>corner</option></select>
+ <div id="verdict">load an image…</div>
+ <label>Layers</label><div id="layers"></div>
+ <hr>
+ <label>Export format</label><select id="fmt"></select>
+ <label><input type="checkbox" id="optimize" checked style="width:auto"> Optimize for cutting</label>
+ <label>Physical width (mm, 0 = none)</label>
+ <input type="number" id="width_mm" value="0" min="0">
+ <label>Split on paper</label><select id="paper"></select>
+ <button id="export">Export ⤓</button>
+</div>
+<div id="stage"><div id="holder"><em>upload a photo to start</em></div></div>
+<script>
+const $=id=>document.getElementById(id);
+let imgId=null, timer=null;
+const PATTERNS=__PATTERNS__, METHODS=__METHODS__, FORMATS=__FORMATS__, PAPERS=__PAPERS__;
+for(const m of METHODS) method.add(new Option(m,m));
+for(const p of PATTERNS) pattern.add(new Option(p,p));
+for(const f of FORMATS) fmt.add(new Option(f,f));
+paper.add(new Option("none","none")); for(const p of PAPERS) paper.add(new Option(p,p));
+const params=()=>({id:imgId,method:method.value,pattern:pattern.value,cell:cell.value,
+  contrast:contrast.value,gamma:gamma.value,invert:invert.checked,
+  registration:registration.value});
+function debounce(){clearTimeout(timer);timer=setTimeout(render,180);}
+for(const el of [method,pattern,cell,contrast,gamma,invert,registration])
+  el.addEventListener('input',()=>{cellv.textContent=cell.value;debounce();});
+$('file').addEventListener('change',async e=>{
+  const fd=new FormData();fd.append('file',e.target.files[0]);
+  const r=await fetch('/api/upload',{method:'POST',body:fd});
+  imgId=(await r.json()).id;render();});
+async function render(){
+  if(!imgId)return;
+  const q=new URLSearchParams(params());
+  const r=await fetch('/api/preview?'+q);
+  if(!r.ok){verdict.textContent='error';return;}
+  const d=await r.json();
+  holder.innerHTML=d.svg;
+  const v=$('verdict');
+  v.className=d.cuttable?'ok':'bad';
+  v.textContent=(d.cuttable?'✓ cuttable':'✗ not cuttable')+
+    ` — score ${(d.score*100).toFixed(0)}%, at-risk ${(d.at_risk*100).toFixed(0)}%, `+
+    `${d.regions} region(s), ${d.primitives} prims`;
+  const L=$('layers');L.innerHTML='';
+  for(const ly of d.layers){
+    const id='L_'+ly.name;
+    const row=document.createElement('label');
+    row.innerHTML=`<input type=checkbox checked data-g="${ly.name}" style="width:auto">`+
+      `<span class=sw style="background:rgb(${ly.color.join(',')})"></span>`+
+      `${ly.name} <small>(${ly.count})</small>`;
+    L.appendChild(row);
+    row.querySelector('input').addEventListener('change',ev=>{
+      const g=holder.querySelector('g[id="'+ev.target.dataset.g+'"]');
+      if(g)g.style.display=ev.target.checked?'':'none';});
+  }
+}
+$('export').addEventListener('click',async()=>{
+  if(!imgId)return;
+  const fd=new FormData();const p=params();
+  for(const k in p)fd.append(k,p[k]);
+  fd.append('fmt',fmt.value);fd.append('optimize',optimize.checked);
+  fd.append('max_side','1000');fd.append('width_mm',width_mm.value);
+  fd.append('paper',paper.value);
+  $('export').textContent='Rendering…';$('export').disabled=true;
+  const r=await fetch('/api/export',{method:'POST',body:fd});
+  const blob=await r.blob();const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  const cd=r.headers.get('Content-Disposition')||'';
+  a.download=(cd.match(/filename="(.+?)"/)||[,'stencil.'+fmt.value])[1];
+  a.click();URL.revokeObjectURL(url);
+  $('export').textContent='Export ⤓';$('export').disabled=false;});
+cellv.textContent=cell.value;
+</script></body></html>

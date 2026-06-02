@@ -1,0 +1,8 @@
+# Stencil Lab — optional web GUI dependencies (on top of requirements.txt).
+#
+#   pip install -r requirements-gui.txt
+#
+-r requirements.txt
+fastapi
+uvicorn
+python-multipart
