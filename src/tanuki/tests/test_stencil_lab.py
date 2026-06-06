@@ -204,12 +204,37 @@ def test_halftone_stencil_optimizes_for_cutting_by_default(tmp_path, gradient_rg
     opt = sl.halftone_stencil(img, method="grayscale", pattern="dots", max_side=64)
     raw = sl.halftone_stencil(img, method="grayscale", pattern="dots", max_side=64,
                               optimize=False)
-    # default → cut polygons (fabrication-ready); raw → the artistic dots
+    # stable pattern: optimization PRESERVES the dot shapes (vector cleanup),
+    # it doesn't merge them into blobs — just drops any sub-feature dots
     assert opt.primitive_count > 0
-    assert all(isinstance(p, Polyline) and p.fill
-               for L in opt.layers for p in L.primitives)
-    assert any(isinstance(p, Dot) for L in raw.layers for p in L.primitives)
+    assert all(isinstance(p, Dot) for L in opt.layers for p in L.primitives)
+    assert opt.primitive_count <= raw.primitive_count
     assert len(opt.layers) == len(raw.layers)
+
+
+def test_cut_cleanup_preserves_shapes_and_drops_subfeature():
+    st = sl.Stencil(40, 40)
+    st.layer("key").add([Dot(20, 20, 5), Dot(5, 5, 0.4),          # big dot, tiny dot
+                         sl.polygon([(0, 0), (12, 0), (12, 12), (0, 12)])])
+    clean = sl.cut_cleanup(st, min_feature_px=2.0)
+    kinds = [type(p).__name__ for L in clean.layers for p in L.primitives]
+    assert kinds.count("Dot") == 1                 # the 0.8-px dot is dropped
+    assert "Polyline" in kinds                     # the square is kept verbatim
+    # the surviving dot is unchanged (still a smooth circle, same radius)
+    d = next(p for L in clean.layers for p in L.primitives if isinstance(p, Dot))
+    assert (d.x, d.y, d.r) == (20, 20, 5)
+
+
+def test_cut_ready_routes_stable_vs_experimental():
+    # stable → shapes preserved (Dots stay Dots); experimental → raster polygons
+    s = sep.grayscale(gradient_rgb := np.stack([np.tile(np.linspace(0, 1, 48), (48, 1))] * 3, -1))
+    h, w = 48, 48
+    dots = sl.build_stencil(s, (w, h), pattern="dots", cell=6)
+    stable = sl.cut_ready(dots, "dots")
+    assert all(isinstance(p, Dot) for L in stable.layers for p in L.primitives)
+    lines = sl.build_stencil(s, (w, h), pattern="voronoi", cell=6)
+    exp = sl.cut_ready(lines, "voronoi")
+    assert all(isinstance(p, Polyline) for L in exp.layers for p in L.primitives)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -1126,6 +1151,40 @@ def test_optimize_for_cutting_preserves_layers():
     assert [l.color for l in cut.layers] == [(0, 174, 239), (0, 0, 0)]
 
 
+# ─── carrier mode: threshold ∩ pattern (generalised threshold_lines) ──────────
+
+def test_carrier_mask_confined_to_threshold_and_leaves_bridges():
+    plane = np.zeros((60, 80))
+    plane[:, :40] = 0.9                         # left half dark
+    cut = sl.carrier_mask(plane, "lines", threshold=0.5, duty=0.5, cell=8, angle=0)
+    assert cut.dtype == bool
+    assert cut[:, :40].any()                    # cuts inside the dark half
+    assert not cut[:, 40:].any()                # nothing in the light half
+    # not everything in the dark half is cut → the gaps stay as material bridges
+    assert 0 < cut.sum() < int((plane[:, :40] >= 0.5).sum())
+
+
+def test_carrier_stencil_makes_experimental_pattern_cuttable(gradient_rgb):
+    s = sep.grayscale(gradient_rgb)
+    h, w = gradient_rgb.shape[:2]
+    cs = sl.carrier_stencil(s, (w, h), carrier="honeycomb", threshold=0.4,
+                            duty=0.5, cell=8)
+    prims = [p for L in cs.layers for p in L.primitives]
+    assert prims and all(isinstance(p, Polyline) and p.fill for p in prims)
+    rep = fab.analyze_cuttability(fab.StencilMask.from_layer(cs.layers[0], (w, h)),
+                                  min_feature_px=2, min_island_area=9)
+    assert not rep.loses_information            # self-bridged → nothing falls out
+
+
+def test_halftone_stencil_carrier_flag(tmp_path, gradient_rgb):
+    img = sl.save_image(gradient_rgb, tmp_path / "in.png")
+    st = sl.halftone_stencil(img, method="grayscale", pattern="voronoi",
+                             carrier=True, cell=8, max_side=80)
+    assert st.primitive_count > 0
+    assert all(isinstance(p, Polyline) and p.fill
+               for L in st.layers for p in L.primitives)
+
+
 # ─── new patterns: splotches (shadow blobs) & threshold_lines (self-bridging) ──
 
 def test_splotches_filled_blobs_grow_with_coverage():
@@ -1249,6 +1308,13 @@ def _toy_mm_ready():
     return st
 
 
+def _full_toy():
+    """A stencil whose ink covers the whole canvas (so no tile is empty)."""
+    st = sl.Stencil(100, 80)
+    st.layer("key", color=(0, 0, 0)).add(sl.polygon([(0, 0), (100, 0), (100, 80), (0, 80)]))
+    return st
+
+
 def test_unit_conversions_roundtrip():
     assert sizing.mm_to_px(25.4, 100) == pytest.approx(100)
     assert sizing.px_to_mm(100, 100) == pytest.approx(25.4)
@@ -1282,18 +1348,29 @@ def test_fit_to_physical_keeps_aspect():
 
 
 def test_sheets_needed_and_tile_to_paper_fit():
-    mm = sizing.fit_to_physical(_toy_mm_ready(), width_mm=700)   # 700×560 mm
+    mm = sizing.fit_to_physical(_full_toy(), width_mm=700)       # 700×560 mm, full
     cols, rows = sizing.sheets_needed(mm, "a4", margin_mm=10, overlap_mm=10)
     assert cols >= 2 and rows >= 2                # a 70 cm design needs several A4
     bw, bh = sizing.printable_area("a4", margin_mm=10)
     tiles = sizing.tile_to_paper(mm, "a4", margin_mm=10, overlap_mm=10)
-    assert len(tiles) == cols * rows
-    assert all(t.stencil.width <= bw + 0.01 and t.stencil.height <= bh + 0.01
+    assert len(tiles) == cols * rows             # full content → no sheets skipped
+    # every sheet is a uniform, full printable page (no tiny edge tiles)
+    assert all(abs(t.stencil.width - bw) < 0.01 and abs(t.stencil.height - bh) < 0.01
                for t in tiles)
 
 
+def test_tile_to_paper_skips_blank_sheets():
+    # ink only in the top-left → bottom/right sheets are blank and dropped
+    st = sl.Stencil(100, 80)
+    st.layer("key").add(sl.polygon([(0, 0), (20, 0), (20, 16), (0, 16)]))
+    mm = sizing.fit_to_physical(st, width_mm=700)
+    full = sizing.tile_to_paper(mm, "a5", skip_empty=False)
+    kept = sizing.tile_to_paper(mm, "a5", skip_empty=True)
+    assert 0 < len(kept) < len(full)             # blank sheets removed
+
+
 def test_poster_by_cols():
-    scaled, tiles = sizing.poster(_toy_mm_ready(), "a4", cols=3,
+    scaled, tiles = sizing.poster(_full_toy(), "a4", cols=3,
                                   margin_mm=10, overlap_mm=10)
     assert scaled.units == "mm"
     # 3 sheets across (minus overlaps) → at least 3 columns of tiles
@@ -1344,7 +1421,8 @@ def test_gui_index_and_preview():
     # per-plate analysis: one entry per CMYK channel, with its own island count
     assert [l["name"] for l in d["layers"]] == ["cyan", "magenta", "yellow", "key"]
     assert all("islands" in l and "thin" in l for l in d["layers"])
-    assert d["svg"].count("<g ") == 4          # one toggleable group per plate
+    for n in ("cyan", "magenta", "yellow", "key"):
+        assert f'id="{n}"' in d["svg"]         # one toggleable group per plate
     assert d["status"] in ("clean", "bridge", "loss")
     assert isinstance(d["islands"], int) and 0.0 <= d["thin"] <= 1.0
     assert c.get("/api/preview", params={"id": "bogus"}).status_code == 404
@@ -1366,15 +1444,387 @@ def test_gui_export_svg_and_paper_zip():
     assert len(zipfile.ZipFile(io.BytesIO(r.content)).namelist()) > 1
 
 
-def test_gui_islands_overlay_toggle():
+def test_gui_export_splits_per_plate():
+    # CMYK split onto sheets → one set of sheets *per colour plate*
+    import io, zipfile, collections
     c = _gui_client()
     uid = _upload_tanuki(c)
-    base = {"id": uid, "method": "grayscale", "pattern": "dots",
-            "cell": 4, "max_side": 280}
-    off = c.get("/api/preview", params={**base, "show_islands": "false"}).json()
-    on = c.get("/api/preview", params={**base, "show_islands": "true"}).json()
-    assert "<image" not in off["svg"]
-    # the overlay is a transparent red PNG embedded in the SVG, scaling with it
-    assert "<image" in on["svg"] and "data:image/png;base64," in on["svg"]
-    # the toggle button is wired up in the page
-    assert 'id="toggleisl"' in c.get("/").text
+    r = c.post("/api/export", data={"id": uid, "method": "cmyk", "pattern": "dots",
+               "cell": 8, "fmt": "pdf", "optimize": "true", "max_side": 320,
+               "out_size": "pliego", "paper": "medio_pliego"})
+    names = zipfile.ZipFile(io.BytesIO(r.content)).namelist()
+    by_plate = collections.Counter(n.split("_r")[0] for n in names)
+    assert set(by_plate) == {"cyan", "magenta", "yellow", "key"}   # 4 colour plates
+    assert len(set(by_plate.values())) == 1                        # same #sheets each
+    assert len(names) == 4 * next(iter(by_plate.values()))         # plates × sheets
+
+
+def test_gui_islands_overlay_per_layer_hidden_by_default():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    d = c.get("/api/preview", params={"id": uid, "method": "grayscale",
+              "pattern": "dots", "cell": 4, "max_side": 280}).json()
+    # the island overlay is always emitted now, but hidden until a per-layer toggle
+    assert "<image" in d["svg"] and "data:image/png;base64," in d["svg"]
+    assert 'class="islands" style="display:none"' in d["svg"]
+    # the old global button is gone; each plate has its own islands checkbox
+    page = c.get("/").text
+    assert 'id="toggleisl"' not in page and "showIslands" not in page
+    assert "islchk" in page
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 10 — angle override / line-screen params, per-plate islands, wall size
+# ════════════════════════════════════════════════════════════════════════════
+
+def test_build_stencil_angle_override_and_line_params():
+    import numpy as np
+    g = np.tile(np.linspace(0, 1, 60), (40, 1))
+    s = sep.grayscale(g)
+    # line_screen-only knobs are forwarded through generate()/build_stencil()
+    flat = sl.build_stencil(s, (60, 40), pattern="line_screen", cell=6, angle=0)
+    wavy = sl.build_stencil(s, (60, 40), pattern="line_screen", cell=6, angle=0,
+                            params={"wave_amplitude": 5, "wave_length": 40})
+    assert sl.to_svg(flat) != sl.to_svg(wavy)          # wave_* changed the screen
+    # extra params are harmless for patterns that don't accept them
+    dots = sl.build_stencil(s, (60, 40), pattern="dots", cell=6,
+                            params={"max_duty": 0.5, "wave_amplitude": 3})
+    assert dots.primitive_count > 0
+    # angle override forces one angle on every plate (vs the per-plate default)
+    rgb = np.repeat(g[..., None], 3, axis=-1)
+    auto = sl.build_stencil(sep.cmyk(rgb), (60, 40), pattern="lines", cell=6)
+    forced = sl.build_stencil(sep.cmyk(rgb), (60, 40), pattern="lines", cell=6, angle=0)
+    assert auto.primitive_count and forced.primitive_count
+    assert sl.to_svg(auto) != sl.to_svg(forced)
+
+
+def test_gui_line_screen_params_reproduce_refs():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    # ref 3: single-ink horizontal line_screen (angle 0) with max_duty
+    flat = c.get("/api/preview", params={"id": uid, "method": "grayscale",
+        "pattern": "line_screen", "cell": 6, "angle": "0", "max_duty": 0.95,
+        "max_side": 320, "optimize": "false"}).json()
+    # ref 5: the same screen, undulated
+    wavy = c.get("/api/preview", params={"id": uid, "method": "grayscale",
+        "pattern": "line_screen", "cell": 7, "angle": "0", "max_duty": 0.95,
+        "wave_amplitude": 4, "wave_length": 46, "max_side": 320,
+        "optimize": "false"}).json()
+    assert [l["name"] for l in flat["layers"]] == ["key"]   # single ink plate
+    assert flat["svg"] != wavy["svg"]                       # wave_* changed the screen
+    # the page exposes the new controls + the presets that drive them
+    page = c.get("/").text
+    for tok in ('id="preset"', 'id="angle"', 'id="max_duty"',
+                'id="wave_amplitude"', 'id="wave_length"'):
+        assert tok in page
+
+
+def test_gui_per_layer_island_groups():
+    import re
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    d = c.get("/api/preview", params={"id": uid, "method": "cmyk", "pattern": "dots",
+              "cell": 4, "max_side": 280}).json()
+    groups = re.findall(r'id="isl__([a-z]+)"', d["svg"])
+    assert groups                                          # ≥1 plate has islands
+    assert set(groups) <= {"cyan", "magenta", "yellow", "key"}
+    for name in groups:                                    # each maps to a real plate
+        assert f'id="{name}"' in d["svg"]
+    assert "islchk" in c.get("/").text                    # per-plate toggle wired up
+
+
+def test_gui_sheets_grid_endpoint():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    d = c.get("/api/sheets", params={"id": uid, "wall_mm": 700, "wall_dim": "width",
+                                     "paper": "a4"}).json()
+    assert d["sized"] and round(d["width_mm"]) == 700
+    assert d["cols"] >= 1 and d["rows"] >= 1 and d["sheets"] == d["cols"] * d["rows"]
+    # no physical size set → not sized (the bottom grid stays hidden)
+    assert c.get("/api/sheets", params={"id": uid}).json()["sized"] is False
+    page = c.get("/").text
+    assert 'id="wall_value"' in page and 'id="sheets"' in page
+
+
+def test_gui_export_wall_size_zip():
+    import io, zipfile
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    # a 70 cm wall split across A3 → a zip of sheets
+    r = c.post("/api/export", data={"id": uid, "method": "grayscale",
+        "pattern": "line_screen", "cell": 6, "angle": "0", "max_duty": 0.95,
+        "fmt": "pdf", "optimize": "true", "max_side": 300,
+        "wall_mm": 700, "wall_dim": "width", "paper": "a3"})
+    assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
+    assert len(zipfile.ZipFile(io.BytesIO(r.content)).namelist()) > 1
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 11 — opt-in "grouped" cut strategy (merge masses; lines untouched)
+# ════════════════════════════════════════════════════════════════════════════
+
+def test_merge_touching_shapes_groups_only_the_mass():
+    from tanuki.mori.stencil_lab.geometry import Dot
+    st = sl.Stencil(60, 40)
+    L = st.layer("key", color=(0, 0, 0))
+    L.add(Dot(15, 20, 6)); L.add(Dot(22, 20, 6))   # overlap → one mass
+    L.add(Dot(50, 20, 5))                           # isolated
+    out = sl.merge_touching_shapes(st, min_feature_px=2)
+    prims = out.layers[0].primitives
+    kinds = sorted(type(p).__name__ for p in prims)
+    # the touching pair becomes one traced polygon; the lone dot stays a Dot
+    assert kinds == ["Dot", "Polyline"]
+    assert sum(isinstance(p, Dot) for p in prims) == 1
+
+
+def test_cut_grouped_leaves_line_screens_untouched():
+    import numpy as np
+    g = np.tile(np.linspace(0, 1, 80), (60, 1))
+    ls = sl.build_stencil(sep.grayscale(g), (80, 60),
+                          pattern="line_screen", cell=6, angle=0)
+    grouped = sl.cut_grouped(ls, "line_screen")
+    # identical geometry — line screens self-bridge, so nothing is merged/moved
+    assert sl.to_svg(ls) == sl.to_svg(grouped)
+
+
+def test_grouped_strategy_merges_dot_masses_and_keeps_default():
+    import numpy as np
+    img = Path(__file__).resolve().parents[1] / "mori/stencil_lab/docs/tanuki.jpg"
+    base = dict(method="grayscale", pattern="dots", cell=5, max_side=320)
+    legacy = sl.halftone_stencil(img, optimize=True, **base)
+    grouped = sl.halftone_stencil(img, optimize=True, strategy="grouped", **base)
+    # masses of overlapping dots collapse into far fewer, coherent cut polygons
+    assert grouped.primitive_count < legacy.primitive_count
+    # the default strategy is unchanged (legacy == no strategy arg)
+    assert sl.to_svg(sl.halftone_stencil(img, optimize=True, **base)) == sl.to_svg(legacy)
+
+
+def test_gui_group_blobs_toggle():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    base = {"id": uid, "method": "grayscale", "pattern": "dots", "cell": 5,
+            "contrast": 1.4, "max_side": 320, "optimize": "true"}
+    legacy = c.get("/api/preview", params={**base, "group_blobs": "false"}).json()
+    grouped = c.get("/api/preview", params={**base, "group_blobs": "true"}).json()
+    assert grouped["primitives"] < legacy["primitives"]   # masses merged
+    assert 'id="group_blobs"' in c.get("/").text           # control wired up
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 12 — per-sheet frame (configurable border on each exported sheet)
+# ════════════════════════════════════════════════════════════════════════════
+
+def test_tile_to_paper_frame_clears_margin_no_line_by_default():
+    import numpy as np
+    g = np.tile(np.linspace(0, 1, 400), (300, 1))
+    st = sl.build_stencil(sep.grayscale(g), (400, 300), pattern="dots", cell=6)
+    big = sl.fit_to_physical(st, width_mm=600)
+    # off entirely by default
+    assert all("frame" not in [l.name for l in t.stencil.layers]
+               for t in sl.tile_to_paper(big, "a4"))
+    # frame_mm=10 clears a 1 cm margin but draws NO border line (cutter-safe)
+    t = sl.tile_to_paper(big, "a4", frame_mm=10)[0]
+    assert "frame" not in [l.name for l in t.stencil.layers]
+    ink = [l for l in t.stencil.layers if l.name == "key"][0]
+    xs = [x for p in ink.primitives for x, _ in
+          (p.points if hasattr(p, "points") else [(p.x, p.y)])]
+    assert min(xs) >= 10 - 5                          # no full artwork in the margin
+    # opt-in border only when frame_width_mm > 0
+    t2 = sl.tile_to_paper(big, "a4", frame_mm=10, frame_width_mm=0.5)[0]
+    box = [l for l in t2.stencil.layers if l.name == "frame"][0].primitives[0]
+    assert box.closed and not box.fill
+    bx = [x for x, _ in box.points]
+    assert round(min(bx)) == 10 and round(max(bx)) == round(t2.stencil.width - 10)
+
+
+def test_gui_export_sheet_frame_clears_margin_line_optional():
+    import io, zipfile
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    data = {"id": uid, "method": "grayscale", "pattern": "dots", "cell": 6,
+            "fmt": "svg", "optimize": "true", "max_side": 300,
+            "wall_mm": 600, "wall_dim": "width", "paper": "a4"}
+    # default: the margin is cleared but NO frame line is drawn (cutter-safe)
+    z = zipfile.ZipFile(io.BytesIO(c.post("/api/export", data=data).content))
+    assert all('id="frame"' not in z.read(n).decode() for n in z.namelist())
+    # opt-in: a positive frame line is drawn as a border
+    z1 = zipfile.ZipFile(io.BytesIO(
+        c.post("/api/export", data={**data, "frame_width_mm": 0.8}).content))
+    assert any('id="frame"' in z1.read(n).decode() for n in z1.namelist())
+    assert 'id="frame_mm"' in c.get("/").text               # control wired up
+
+
+def test_sheet_frame_line_width_configurable():
+    f = sl.sheet_frame(200, 150, inset=10, width=2.0)
+    assert f is not None and f.closed and not f.fill and f.width == 2.0
+    assert sl.sheet_frame(20, 20, inset=15) is None         # no room → skipped
+
+
+def test_gui_export_single_file_frame():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    base = {"id": uid, "method": "grayscale", "pattern": "dots", "cell": 6,
+            "fmt": "svg", "optimize": "true", "max_side": 300,
+            "out_size": "a4"}                                # sized, but no split
+    on = c.post("/api/export", data={**base, "frame_mm": 10, "frame_width_mm": 1.5})
+    assert 'id="frame"' in on.text and 'stroke-width="1.5"' in on.text
+    off = c.post("/api/export", data={**base, "frame_mm": 0})
+    assert 'id="frame"' not in off.text
+
+
+def test_apply_frame_clips_artwork_out_of_margin():
+    from tanuki.mori.stencil_lab.geometry import Dot
+    st = sl.Stencil(100, 100)
+    L = st.layer("key", color=(0, 0, 0))
+    L.add(Dot(50, 50, 4))     # well inside the frame
+    L.add(Dot(3, 3, 2))       # in the margin (inside the 10-unit inset)
+    # default (width 0): margin cleared, but NO frame line drawn (cutter-safe)
+    out = sl.apply_frame(st, inset=10)
+    assert "frame" not in [l.name for l in out.layers]
+    kept = [l for l in out.layers if l.name == "key"][0].primitives
+    assert len(kept) == 1 and kept[0].x == 50       # margin dot removed, inner kept
+    # width > 0 also draws the visible border outline
+    assert "frame" in [l.name for l in sl.apply_frame(st, inset=10, width=0.5).layers]
+    # no room → returned unchanged
+    assert sl.apply_frame(st, inset=60).layers[0].primitives
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 13 — opt-in per-pattern support grid (scaffold that reduces islands)
+# ════════════════════════════════════════════════════════════════════════════
+
+def test_support_grid_mesh_holds_every_piece_for_dots():
+    import numpy as np
+    from scipy import ndimage
+    from tanuki.mori.stencil_lab import fabrication as fab
+    img = Path(__file__).resolve().parents[1] / "mori/stencil_lab/docs/tanuki.jpg"
+    arr = sl.adjustments.contrast(sl.to_grayscale(sl.resize(sl.load_image(img), max_side=320)), 1.4)
+    h, w = arr.shape
+    s = sep.grayscale(arr)
+    plain = sl.build_stencil(s, (w, h), pattern="dots", cell=8)
+    mesh = sl.support_grid(plain, s, pattern="dots", cell=8, width=2)
+    m = fab.StencilMask.from_layer(mesh.layers[0], (w, h))
+    # the mesh is one connected body of material → no enclosed islands at all
+    _, ncomp = ndimage.label(m.material, structure=np.ones((3, 3), int))
+    assert fab.analyze_cuttability(m, min_feature_px=2,
+                                   min_island_area=64).island_count == 0
+    # and it genuinely confines the cut to the holes (so a wall survives)
+    assert m.cut.mean() < fab.StencilMask.from_layer(plain.layers[0], (w, h)).cut.mean()
+
+
+def test_support_grid_noop_for_non_mesh_patterns():
+    import numpy as np
+    g = np.tile(np.linspace(0, 1, 120), (90, 1))
+    s = sep.grayscale(g)
+    st = sl.build_stencil(s, (120, 90), pattern="line_screen", cell=6, angle=0)
+    # the mesh is only defined for dots / hexagons; line screens pass through
+    assert sl.to_svg(sl.support_grid(st, s, pattern="line_screen", cell=6, angle=0)) \
+        == sl.to_svg(st)
+
+
+def test_gui_support_grid_toggle():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    base = {"id": uid, "method": "grayscale", "pattern": "dots", "cell": 6,
+            "contrast": 1.4, "max_side": 320, "optimize": "false"}
+    off = c.get("/api/preview", params={**base, "support": "false"}).json()
+    on = c.get("/api/preview", params={**base, "support": "true"}).json()
+    assert on["islands"] <= off["islands"]                  # mesh holds every piece
+    assert on["status"] == "clean"                          # nothing falls out
+    assert 'id="support"' in c.get("/").text                # control wired up
+
+
+def test_mesh_openings_lattice_for_dots_only():
+    op = sl.mesh_openings("dots", cell=8, angle=0, width=2, size=(120, 90))
+    assert op is not None and op.dtype == bool and 0.0 < op.mean() < 1.0  # holes + walls
+    assert sl.mesh_openings("line_screen", cell=8, size=(120, 90)) is None
+
+
+def test_gui_debug_overlays_support_mesh():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    base = {"id": uid, "method": "grayscale", "pattern": "dots", "cell": 8,
+            "contrast": 1.4, "optimize": "true", "max_side": 360, "support": "true"}
+    off = c.get("/api/preview", params={**base, "debug": "false"}).json()
+    on = c.get("/api/preview", params={**base, "debug": "true"}).json()
+    assert 'id="mesh__key"' not in off["svg"] and 'id="mesh__key"' in on["svg"]
+    assert on["svg"].count("<circle") > 50                  # crisp vector opening outlines
+    # nothing to show for a pattern without a mesh
+    ls = c.get("/api/preview", params={**base, "pattern": "line_screen",
+                                       "angle": "0", "debug": "true"}).json()
+    assert 'class="mesh"' not in ls["svg"]
+    assert 'id="debug"' in c.get("/").text                  # control wired up
+
+
+def test_gui_debug_mesh_per_plate_colour_for_cmyk():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    d = c.get("/api/preview", params={"id": uid, "method": "cmyk", "pattern": "dots",
+              "cell": 8, "contrast": 1.4, "optimize": "true", "max_side": 320,
+              "support": "true", "debug": "true"}).json()
+    svg = d["svg"]
+    # one mesh group per plate, each stroked in its own plate colour
+    for name in ("cyan", "magenta", "yellow", "key"):
+        assert f'id="mesh__{name}"' in svg
+    assert "rgb(0,174,239)" in svg                          # cyan plate's mesh colour
+
+
+def test_gui_controls_grouped_into_sections():
+    page = _gui_client().get("/").text
+    for legend in (">Cutting<", ">Layers &amp; Islands<", ">Export size<"):
+        assert legend in page
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 14 — island detection at a raster-faithful resolution (no false seals)
+# ════════════════════════════════════════════════════════════════════════════
+
+def test_supersample_clears_false_islands_for_dots():
+    import numpy as np
+    from scipy import ndimage
+    from tanuki.mori.stencil_lab import fabrication as fab
+    img = Path(__file__).resolve().parents[1] / "mori/stencil_lab/docs/tanuki.jpg"
+    arr = sl.adjustments.contrast(
+        sl.to_grayscale(sl.resize(sl.load_image(img), max_side=480)), 1.4)
+    h, w = arr.shape
+    layer = sl.build_stencil(sep.grayscale(arr), (w, h), pattern="dots", cell=6).layers[0]
+
+    def islands(f):
+        m = fab.StencilMask.from_layer(layer, (w, h), supersample=f)
+        im = fab.island_mask(m, min_feature_px=1.0, min_island_area=round((6 * f) ** 2))
+        return int(ndimage.label(im, structure=np.ones((3, 3), int))[1])  # 8-conn material
+    native, fine = islands(1), islands(3)
+    # native seals sub-pixel webs between near-tangent dots → many false islands;
+    # a 3× raster recovers the webs and collapses them to the few real ones
+    assert native >= 8 and fine <= 4 and fine < native
+
+
+def test_gui_islands_not_inflated_for_stable_dots():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    d = c.get("/api/preview", params={"id": uid, "method": "grayscale",
+              "pattern": "dots", "cell": 6, "contrast": 1.4,
+              "optimize": "true", "max_side": 480}).json()
+    # raster-faithful count is a handful, not the ~9 the native raster used to fake
+    assert d["islands"] <= 4
+
+
+def test_self_bridging_line_screen_reads_as_clean():
+    # line_screen with max_duty < 1 self-bridges → no islands (was a false positive)
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    d = c.get("/api/preview", params={"id": uid, "method": "grayscale",
+              "pattern": "line_screen", "cell": 6, "angle": "0", "max_duty": 0.85,
+              "contrast": 1.4, "optimize": "false", "max_side": 480}).json()
+    assert d["islands"] == 0 and d["status"] == "clean"
+
+
+def test_gui_support_width_changes_scaffold():
+    c = _gui_client()
+    uid = _upload_tanuki(c)
+    base = {"id": uid, "method": "grayscale", "pattern": "dots", "cell": 6,
+            "contrast": 1.4, "max_side": 320, "optimize": "false", "support": "true"}
+    thin = c.get("/api/preview", params={**base, "support_width": 1}).json()
+    thick = c.get("/api/preview", params={**base, "support_width": 5}).json()
+    assert thin["svg"] != thick["svg"]                      # the slider retunes the scaffold
+    assert 'id="support_width"' in c.get("/").text

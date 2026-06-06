@@ -51,8 +51,20 @@ class StencilMask:
         return cls(plane >= threshold)
 
     @classmethod
-    def from_layer(cls, layer: Layer, size: tuple[int, int]) -> "StencilMask":
-        """Rasterise one layer's primitives into a cut mask (``size`` = (w, h))."""
+    def from_layer(cls, layer: Layer, size: tuple[int, int],
+                   *, supersample: int = 1) -> "StencilMask":
+        """Rasterise one layer's primitives into a cut mask (``size`` = (w, h)).
+
+        ``supersample`` > 1 rasterises at that integer multiple of ``size`` (the
+        geometry is scaled to match). This resolves the sub-pixel material webs
+        between near-tangent shapes — at the native resolution they vanish and
+        falsely seal off "islands"; a 2–3× raster recovers them.
+        """
+        w, h = size
+        if supersample and supersample > 1:
+            f = int(supersample)
+            prims = [_scale_prim(p, f) for p in layer.primitives]
+            return cls(_rasterize(prims, (w * f, h * f)))
         return cls(_rasterize(layer.primitives, size))
 
     @classmethod
@@ -87,6 +99,17 @@ class StencilMask:
 
 
 # ─── rasterisation (vector → mask) ────────────────────────────────────────────
+
+def _scale_prim(prim, f: float):
+    """Scale a primitive's coordinates (and radius/width) by ``f``."""
+    if isinstance(prim, Dot):
+        return Dot(prim.x * f, prim.y * f, prim.r * f)
+    return Polyline(
+        points=[(x * f, y * f) for x, y in prim.points],
+        closed=prim.closed, width=prim.width * f, fill=prim.fill,
+        holes=[[(x * f, y * f) for x, y in h] for h in prim.holes],
+    )
+
 
 def _rasterize(primitives, size: tuple[int, int]) -> np.ndarray:
     w, h = size

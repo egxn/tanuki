@@ -76,27 +76,56 @@ SVG), units abstract.
 ## Patterns
 
 Selected by name through the `PATTERNS` registry (uniform `(plane, *, cell,
-angle)` interface used by the pipeline & CLI), or called directly for full
-control over their parameters.
+angle)` interface), or called directly. They're grouped by how well they suit
+the project's goal — a **cuttable** stencil (see `PATTERN_GROUPS`).
 
-| Family       | Name          | What it draws |
-|--------------|---------------|---------------|
-| Traditional  | `dots`        | AM dot screen, area ∝ coverage |
-|              | `lines`       | parallel lines, width ∝ coverage |
-|              | `circular`    | concentric variable-width arcs |
-|              | `crosshatch`  | layered line sets that build up with darkness |
-| Experimental | `sine`        | rows of sine waves, amplitude ∝ coverage |
-|              | `zigzag`      | triangle-wave variant |
-|              | `spiral`      | one Archimedean spiral, width ∝ coverage |
-|              | `radial`      | rays from a centre, width ∝ coverage |
-|              | `hexagons`    | hex-grid halftone, cell size ∝ coverage |
-|              | `honeycomb`   | hex outlines where coverage clears a threshold |
-|              | `topographic` | iso-coverage contour lines (marching squares) |
-|              | `stipple`     | random dots, density ∝ coverage |
-|              | `voronoi`     | Voronoi cell web, cell density ∝ coverage |
-|              | `splotches`   | irregular ink blobs sized by coverage (shadows, B&W) |
-|              | `threshold_lines` | threshold cut broken by a line carrier — self-bridging (always cuttable) |
-|              | `line_screen` | continuous amplitude-modulated line ribbons (street-art line-stencil look) |
+**Recommended** — fill an *area* modulated by coverage, so they read as a proper
+stencil and optimise cleanly:
+
+| Name          | What it draws |
+|---------------|---------------|
+| `dots`        | AM dot screen, area ∝ coverage |
+| `hexagons`    | hex-grid halftone, cell size ∝ coverage |
+| `line_screen` | continuous amplitude-modulated line ribbons (street-art look; supports `wave`) |
+| `splotches`   | irregular ink blobs sized by coverage (shadows, B&W) |
+
+**Self-bridging (threshold carrier)** — cut only inside the dark regions,
+leaving the gaps as a connected material lattice ⇒ always cuttable:
+
+| Name              | What it draws |
+|-------------------|---------------|
+| `threshold_lines` | threshold ∩ a line carrier (`duty` controls cut vs held) |
+
+**Experimental** — stroke / cell / contour screens. On their own they leave
+fragile thin webs or enclosed cells; they're most useful as **carriers**
+(threshold ∩ pattern), which roughly halves the fragile material — see below.
+
+| Name | | Name | |
+|------|--|------|--|
+| `lines` | parallel lines, width ∝ coverage | `radial` | rays from a centre |
+| `circular` | concentric variable-width arcs | `honeycomb` | hex outlines |
+| `crosshatch` | layered line sets | `topographic` | iso-coverage contours |
+| `sine` | rows of sine waves | `stipple` | random dots, density ∝ coverage |
+| `zigzag` | triangle-wave variant | `voronoi` | Voronoi cell web |
+| `spiral` | one Archimedean spiral | | |
+
+### Patterns as threshold carriers
+
+Any pattern can be used as a **carrier**: instead of cutting the pattern's own
+strokes, threshold the image and cut only the intersection with the carrier
+texture (rendered at a fixed `duty` so it always leaves gaps) — the carrier's
+gaps + the highlights stay as a connected material lattice (the bridges).
+
+```python
+sl.carrier_stencil(sep.grayscale(arr), (w, h), carrier="honeycomb", threshold=0.5)
+sl.halftone_stencil("photo.jpg", pattern="voronoi", carrier=True)   # one-shot
+# CLI:  … --pattern honeycomb --carrier --threshold 0.5
+```
+
+This is the recommended way to use the *Experimental* screens: used directly
+their thin strokes get erased by optimisation (near-empty), but as carriers they
+produce substantial, **self-bridging** geometry — `carrier_mask` /
+`carrier_stencil` generalise `threshold_lines` to any pattern.
 
 ## Roadmap
 
@@ -112,7 +141,10 @@ control over their parameters.
   size + reinforcement (small-hole/island removal, thin-neck detection),
   fabrication checks, `optimize_mask` orchestrator, and mask → cut-polygon
   vectorisation (Moore boundary tracing **with inner-hole tracing**, so annular
-  cuts vectorise as true rings) honoured by every exporter.
+  cuts vectorise as true rings) honoured by every exporter. `cut_ready` picks
+  the strategy by pattern: **stable** patterns get `cut_cleanup` (vector — keeps
+  the shapes verbatim, only drops sub-feature ones, so the export matches the
+  preview), while experimental/raster designs get the bridge/merge optimiser.
 - [x] **Phase 4 — Blender geometry.** `to_blender_script` / `write_blender_script`
   emit a standalone `bpy` script that builds one curve object per layer (dots →
   polygon circles, polylines → poly splines), with 2-D fill and Z extrusion for
@@ -148,9 +180,10 @@ control over their parameters.
 - [x] **Phase 9 — Web GUI (optional).** A small FastAPI app — `gui.py` +
   `gui_index.html`, run with `python -m tanuki.mori.stencil_lab.gui` — with live
   **vector** preview (zoom + spinner), toggleable `<g>` plates, a **show-islands**
-  red overlay, a **per-plate, size-aware** cuttability verdict (islands vs thin
-  material, scaled by output size + min-feature-mm), and a background export with
-  an **output paper size + orientation** and optional **split on sheets** (→ `.zip`).
+  red overlay, a **carrier mode** toggle (+ threshold), a **per-plate, size-aware**
+  cuttability verdict (islands vs thin material, scaled by output size +
+  min-feature-mm), and a background export with an **output paper size +
+  orientation** and optional **split on sheets** (→ `.zip`).
 
 ## Dependencies
 

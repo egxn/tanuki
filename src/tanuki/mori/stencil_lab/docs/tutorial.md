@@ -123,38 +123,40 @@ sep.cmyk(rgb)["cyan"].color     # (0, 174, 239)
 
 ## 3. Patterns
 
-A pattern turns a coverage plane into vector geometry. All 16 below screen the
-**grayscale** plane of the tanuki at `cell=5`. Swap with `pattern="…"` in
-`build_stencil` / `halftone_stencil`, or call the generator directly.
+A pattern turns a coverage plane into vector geometry, screening the
+**grayscale** plane of the tanuki at `cell=5`. They're grouped by how well they
+suit a *cuttable* stencil. Swap with `pattern="…"`, or call the generator
+directly.
 
-### Traditional halftones
+### Recommended
 
-| `dots` | `lines` | `circular` | `crosshatch` |
+Area-filling screens that read as a proper stencil and optimise cleanly:
+
+| `dots` | `hexagons` | `line_screen` | `splotches` |
 |:---:|:---:|:---:|:---:|
-| <img width="200" src="tutorial/pat_dots.png" alt="" /> | <img width="200" src="tutorial/pat_lines.png" alt="" /> | <img width="200" src="tutorial/pat_circular.png" alt="" /> | <img width="200" src="tutorial/pat_crosshatch.png" alt="" /> |
-| area ∝ coverage | width ∝ coverage | concentric arcs | engraver build-up |
+| <img width="200" src="tutorial/pat_dots.png" alt="" /> | <img width="200" src="tutorial/pat_hexagons.png" alt="" /> | <img width="200" src="tutorial/pat_line_screen.png" alt="" /> | <img width="200" src="tutorial/pat_splotches.png" alt="" /> |
+| area ∝ coverage | hex cell ∝ coverage | AM line ribbons (street-art) | ink blobs ∝ coverage (shadows) |
 
-### Experimental screens
+### Self-bridging (threshold carrier)
 
-| `sine` | `zigzag` | `spiral` | `radial` |
+| `threshold_lines` |
+|:---:|
+| <img width="200" src="tutorial/pat_threshold_lines.png" alt="" /> |
+| cuts only the dark regions as line **stripes**, leaving the gaps as a connected material lattice → always cuttable |
+
+### Experimental — better as carriers
+
+On their own these leave fragile thin webs or enclosed cells; they shine when
+used as **carriers** (threshold ∩ pattern, like `threshold_lines`), which
+roughly halves the fragile material (honeycomb 91 % → 47 %, voronoi 83 % → 45 %).
+
+| `lines` | `circular` | `crosshatch` | `sine` |
 |:---:|:---:|:---:|:---:|
-| <img width="200" src="tutorial/pat_sine.png" alt="" /> | <img width="200" src="tutorial/pat_zigzag.png" alt="" /> | <img width="200" src="tutorial/pat_spiral.png" alt="" /> | <img width="200" src="tutorial/pat_radial.png" alt="" /> |
-| amplitude ∝ coverage | triangle wave | one Archimedean spiral | rays from centre |
-
-| `hexagons` | `honeycomb` | `topographic` | `stipple` |
-|:---:|:---:|:---:|:---:|
-| <img width="200" src="tutorial/pat_hexagons.png" alt="" /> | <img width="200" src="tutorial/pat_honeycomb.png" alt="" /> | <img width="200" src="tutorial/pat_topographic.png" alt="" /> | <img width="200" src="tutorial/pat_stipple.png" alt="" /> |
-| hex cell ∝ coverage | hex mask | iso-coverage contours | random dots, density ∝ coverage |
-
-| `voronoi` | `splotches` | `threshold_lines` | `line_screen` |
-|:---:|:---:|:---:|:---:|
-| <img width="200" src="tutorial/pat_voronoi.png" alt="" /> | <img width="200" src="tutorial/pat_splotches.png" alt="" /> | <img width="200" src="tutorial/pat_threshold_lines.png" alt="" /> | <img width="200" src="tutorial/pat_line_screen.png" alt="" /> |
-| cell density ∝ coverage | irregular ink blobs ∝ coverage (shadows, B&W) | threshold cut broken by a line carrier — **self-bridging** | continuous AM line ribbons (street-art look) |
-
-`splotches` grows organic blobs with darkness for a hand-stippled / spray
-shadow. `threshold_lines` is special: it cuts the dark regions only as line
-**stripes**, leaving the gaps as material — so the result is always cuttable
-(one part cut, the other always held). See §4 for the cuttability proof.
+| <img width="200" src="tutorial/pat_lines.png" alt="" /> | <img width="200" src="tutorial/pat_circular.png" alt="" /> | <img width="200" src="tutorial/pat_crosshatch.png" alt="" /> | <img width="200" src="tutorial/pat_sine.png" alt="" /> |
+| `zigzag` | `spiral` | `radial` | `honeycomb` |
+| <img width="200" src="tutorial/pat_zigzag.png" alt="" /> | <img width="200" src="tutorial/pat_spiral.png" alt="" /> | <img width="200" src="tutorial/pat_radial.png" alt="" /> | <img width="200" src="tutorial/pat_honeycomb.png" alt="" /> |
+| `topographic` | `stipple` | `voronoi` | |
+| <img width="200" src="tutorial/pat_topographic.png" alt="" /> | <img width="200" src="tutorial/pat_stipple.png" alt="" /> | <img width="200" src="tutorial/pat_voronoi.png" alt="" /> | |
 
 ```python
 # the easy way — image → screened, layered stencil → SVG
@@ -220,6 +222,13 @@ wave = sl.line_screen(1 - g, period=7, angle=0,
 areas, so the line-screen self-bridges and stays cuttable. `wave_amplitude`
 (px) and `wave_length` (px) control the undulation — all lines wave in phase so
 they stay parallel.
+
+All four are one click in the **web GUI**: the *Preset* dropdown reproduces
+each reference (*Line screen — ref 3*, *Duotone lines — refs 2 & 4*, *CMYK
+lines*, *Wavy lines — ref 5*) and the new *Screen angle*, *Max duty* and
+*Wave amp / len* controls expose the same knobs to tweak by hand. *Screen
+angle* defaults to **auto** (the anti-moiré per-plate angles — what the CMYK
+example wants); set it to **0°** for the horizontal street-art look.
 
 ---
 
@@ -457,13 +466,38 @@ cd src/tanuki && python -m tanuki.mori.stencil_lab.gui   # → http://127.0.0.1:
 
 <img width="640" src="tutorial/gui.png" alt="Stencil Lab web GUI" />
 
-Upload a photo and the panel drives the same pipeline live:
+Upload a photo and the panel drives the same pipeline live. The controls are
+grouped by job — **Cutting** (optimize / group / support / carrier / min-feature
+/ registration), **Layers & Islands**, and **Export size**:
 
-* **Live vector preview** — runs *un-optimised* at low resolution (~0.3 s) and
-  returns inline **SVG**, crisp at any zoom; a spinner shows while it renders.
+* **Live vector preview (WYSIWYG)** — returns inline **SVG**, crisp at any zoom,
+  with a spinner while it renders. With **Optimize for cutting** on (default) the
+  preview shows the *real cut* geometry the export produces (bridged / merged) —
+  no surprises; turn it off for the raw artistic pattern.
+* **Group touching shapes** — an opt-in, pattern-specific cut prep (needs
+  *Optimize*). Line screens are left **exactly as drawn** (they already
+  self-bridge), while shape screens (*dots*, *hexagons*, …) have their
+  **touching** shapes merged into one clean cut mass — a dark blob becomes a
+  single coherent polygon instead of a pile of overlapping circles, and isolated
+  shapes are kept verbatim. Off by default (the current behaviour is unchanged).
+* **Force support grid (mesh)** — an opt-in regular **mesh**, like a metal grid
+  or a die over leather: a single connected lattice of material with a **hole at
+  every pattern cell**, the cut confined to the holes so a material **wall**
+  always survives between neighbouring cells. The whole plate stays one connected
+  piece and **nothing falls out** (the verdict goes clean/green), while the cut
+  inside each hole still follows the pattern (dot / hex size ∝ coverage). It is
+  defined for the regular-lattice *dots* and *hexagon* screens; the **Mesh wall**
+  slider sets the wall width (px). Off by default. Tick **Debug: show mesh** to
+  overlay the opening lattice in cyan — the cut should sit inside each hole with a
+  wall between cells, a quick way to confirm the mesh is doing its job.
 * **Zoom** — `− ⤢ +` buttons and mouse-wheel zoom on the preview.
 * **Toggle colour plates** — each separation channel is an SVG `<g>` group, so
   the layer checkboxes show/hide plates instantly (no re-render).
+* **Presets & line-screen controls** — the *Preset* dropdown reproduces the
+  street-art references from §3 (ref 3 line screen, refs 2 & 4 duotone, CMYK
+  lines, ref 5 wavy) in one click. The *Screen angle* (auto / 0–90°), *Max duty*
+  and *Wave amp / len* controls expose the underlying `line_screen` knobs so any
+  of them can be tuned by hand.
 * **Per-plate, size-aware cuttability** — each plate (it's cut on its own sheet)
   is analysed separately. The verdict separates **islands** (pieces that fall
   out = real information loss) from **thin material** (fragility): green =
@@ -471,12 +505,37 @@ Upload a photo and the panel drives the same pipeline live:
   unbridgeable loss. The **Min feature / tool (mm)** is a real size: combined
   with the **Output size**, "thin material" depends on how big you actually
   print — the same halftone reads as 89 % thin on A6 but 0 % on a pliego.
-* **Show islands** — a toggle button overlays the islands (the pieces that
-  would fall out) in red right on the preview (see the screenshot above), so you
-  can see *where* the trouble is; it scales and zooms with the artwork.
-* **Output size & split** — set the physical **Output size** to a paper
-  (e.g. *tabloid*) with an orientation, and optionally **Split on paper** sheets
-  (e.g. *A4*); the background export downloads a file (or a `.zip` of sheets).
+  Islands are counted on a **raster-faithful** (2–3× supersampled) render of each
+  coarse screen, so the thin material webs between near-tangent dots aren't sealed
+  off into false islands — a stable dot/hex screen now reports the few real
+  enclosures, not dozens of rasterisation artefacts.
+* **Islands — per plate** — in the **Layers & Islands** group each plate row has
+  a visibility checkbox and a `◍` checkbox that overlays *that plate's* islands
+  (the pieces that would fall out) in red right on the preview, so you can see
+  *where* the trouble is; it scales and zooms with the artwork, and hiding the
+  plate hides its islands with it. (There's no global button — the toggle lives
+  on each layer.)
+* **Carrier mode** — tick it to use the chosen pattern as a *threshold carrier*
+  (cut = `threshold ∩ pattern`); the **Threshold** slider sets where it cuts.
+  This is what makes the *Experimental* screens (honeycomb, voronoi, lines…)
+  fabrication-useful — they self-bridge instead of leaving fragile webs.
+* **Wall size & split** — set a physical target either as a **Wall size**
+  (a value in mm/cm/m along the width or height — for murals and posters) or as
+  a standard **Output size** paper (e.g. *tabloid*); the wall size wins when set.
+  Pick a **Split on paper** sheet (e.g. *A4*) and a live **sheet grid** appears
+  at the bottom of the preview showing the physical dimensions and the
+  `cols × rows` panelisation (e.g. a 70 cm wall → A4 = 4×2 = 8 sheets). The
+  export then downloads one file, or a `.zip` of sheets **split per colour
+  plate** — each ink on its own sheet, every sheet a **uniform full page** (no
+  tiny edge tiles) and **blank sheets dropped**. CMYK on a pliego split into
+  medios pliegos → 8 sheets, 2 per colour.
+* **Clear margin** — **Clear margin (mm)** (default **10 mm = 1 cm**; 0 = off)
+  clips the artwork out of a margin band around every export (each sheet when
+  splitting on paper *and* a single-file export), so no halftone is left in the
+  margin where a cutter would otherwise still cut it. By default **no border line
+  is drawn** — the margin is simply cleared, leaving the cutter no frame to cut.
+  Set **Frame line (mm)** > 0 only if you want a visible border outline for a
+  printed proof (it *is* a cut path, so the cutter will cut it).
 
 It's pure glue over the library functions — see [`gui.py`](../gui.py) (the page
 markup lives in [`gui_index.html`](../gui_index.html)).

@@ -40,6 +40,7 @@ PAPER: dict[str, tuple[float, float]] = {
     "legal": (215.9, 355.6), "tabloid": (279.4, 431.8), "oficio": (216, 340),
     # Latin-American "pliego" and its fractions
     "pliego": (700, 1000), "medio_pliego": (500, 700), "cuarto_pliego": (350, 500),
+    "cricut": (300, 300)
 }
 
 
@@ -125,25 +126,39 @@ def sheets_needed(stencil: Stencil, paper: str, *, landscape: bool = False,
 
 def tile_to_paper(stencil: Stencil, paper: str = "a4", *, landscape: bool = False,
                   margin_mm: float = 10.0, overlap_mm: float = 10.0,
-                  crop_marks: bool = True) -> list[Tile]:
+                  crop_marks: bool = True, full: bool = True,
+                  skip_empty: bool = True, frame_mm: float = 0.0,
+                  frame_width_mm: float = 0.0) -> list[Tile]:
     """Split a physical (mm) stencil onto sheets of ``paper``.
 
     Tiles to the sheet's printable area (size − margins), with ``overlap_mm`` of
     shared margin and corner crop marks for re-alignment.  Each tile's stencil
     is in mm, ready to print/cut at 1:1.
+
+    ``frame_mm`` > 0 clears that many millimetres of margin around each sheet
+    (clipping artwork out of it, e.g. ``10`` = a 1 cm margin); ``frame_width_mm``
+    > 0 also draws a visible border outline (which the cutter *will* cut, so it
+    defaults to 0 — just the clear margin).
+
+    By default every sheet is a **full, uniform printable page** (``full``) and
+    **blank sheets are dropped** (``skip_empty``) — so you don't get tiny edge
+    tiles or empty pages for inks that aren't present in a region.
     """
     bw, bh = printable_area(paper, landscape=landscape, margin_mm=margin_mm)
-    return tile_stencil(stencil, bw, bh, overlap=overlap_mm, crop_marks=crop_marks)
+    return tile_stencil(stencil, bw, bh, overlap=overlap_mm, crop_marks=crop_marks,
+                        frame=frame_mm, frame_width=frame_width_mm,
+                        full=full, skip_empty=skip_empty)
 
 
 def poster(stencil: Stencil, paper: str = "a4", *, width_mm: float | None = None,
            cols: int | None = None, landscape: bool = False,
            margin_mm: float = 10.0, overlap_mm: float = 10.0,
-           crop_marks: bool = True) -> tuple[Stencil, list[Tile]]:
+           crop_marks: bool = True, frame_mm: float = 0.0) -> tuple[Stencil, list[Tile]]:
     """One call: size a design and split it across ``paper`` sheets.
 
     Choose the physical width by ``width_mm`` directly, or by ``cols`` (number of
-    sheets across); defaults to a single sheet width.  Returns
+    sheets across); defaults to a single sheet width.  ``frame_mm`` > 0 adds a
+    per-sheet border (see :func:`tile_to_paper`).  Returns
     ``(scaled_stencil_mm, tiles)``.
     """
     bw, bh = printable_area(paper, landscape=landscape, margin_mm=margin_mm)
@@ -152,5 +167,5 @@ def poster(stencil: Stencil, paper: str = "a4", *, width_mm: float | None = None
         width_mm = n * bw - (n - 1) * overlap_mm     # n sheets across, minus overlaps
     scaled = fit_to_physical(stencil, width_mm=width_mm)
     tiles = tile_to_paper(scaled, paper, landscape=landscape, margin_mm=margin_mm,
-                          overlap_mm=overlap_mm, crop_marks=crop_marks)
+                          overlap_mm=overlap_mm, crop_marks=crop_marks, frame_mm=frame_mm)
     return scaled, tiles

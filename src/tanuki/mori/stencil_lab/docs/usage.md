@@ -183,6 +183,11 @@ PATTERN_NAMES
 plane = sep.cmyk(arr)["key"].plane
 prims = generate(plane, "sine", cell=10, angle=0)   # uniform (plane, *, cell, angle)
 prims = PATTERNS["dots"](plane, cell=8, angle=45)    # same thing
+
+# extra generator knobs are forwarded as **params (ignored by patterns that
+# don't take them) — e.g. line_screen's max_duty / wave_amplitude / wave_length
+prims = generate(plane, "line_screen", cell=6, angle=0,
+                 max_duty=0.95, wave_amplitude=4, wave_length=46)
 ```
 
 | Name          | Output      | Key params (direct call) |
@@ -228,18 +233,47 @@ avoid moiré. The pipeline does this automatically (15° / 75° / 0° / 45° for
 CMYK); see `pipeline._CMYK_ANGLES`. Angle-agnostic patterns (circular, spiral,
 hexagons, …) simply ignore it.
 
+### Carrier mode (threshold ∩ pattern)
+
+The *Experimental* screens (lines, circular, sine, honeycomb, voronoi, …) leave
+fragile thin webs when cut directly. Use them as a **carrier** instead: cut only
+where the image is dark *and* inside the pattern, leaving the pattern's gaps as a
+connected material lattice (the bridges) — a self-bridging stencil. This
+generalises `threshold_lines` to any pattern.
+
+```python
+# boolean cut mask = threshold ∩ pattern (rendered at fixed `duty` so gaps remain)
+cut = sl.carrier_mask(plane, "honeycomb", threshold=0.5, duty=0.5, cell=8)
+
+# a full layered stencil (per channel), optimised + vectorised to cut polygons
+st = sl.carrier_stencil(sep.grayscale(arr), (w, h), carrier="honeycomb", threshold=0.5)
+
+# one-shot / CLI
+st = sl.halftone_stencil("photo.jpg", pattern="voronoi", carrier=True, threshold=0.5)
+#   python -m tanuki.mori.stencil_lab photo.jpg --pattern honeycomb --carrier --threshold 0.5
+```
+
+Measured benefit (vs cutting the pattern directly): honeycomb thin material
+91 % → 47 %, voronoi 83 % → 45 %, and the result stays cuttable.
+
 ---
 
 ## 7. Building & exporting a stencil
 
 `build_stencil` renders every channel of a separation into a layered
 `Stencil` with the chosen `pattern`, applying conventional per-channel screen
-angles.
+angles. Pass `angle=` to force a single screen angle on every plate instead
+(e.g. `angle=0` for the horizontal `line_screen` look), and `params={…}` to
+forward generator-specific knobs through to the pattern.
 
 ```python
 s = sep.cmyk(arr)
 h, w = arr.shape[:2]
 stencil = sl.build_stencil(s, (w, h), pattern="dots", cell=8, units="px")
+
+# horizontal line-screen with extra knobs forwarded to the generator
+ink = sl.build_stencil(sep.grayscale(arr), (w, h), pattern="line_screen",
+                       cell=6, angle=0, params={"max_duty": 0.95})
 
 sl.write_svg(stencil, "out.svg", background="white")  # → file
 svg_str = sl.to_svg(stencil)                            # → string
@@ -345,12 +379,20 @@ Latin-American `pliego` (70×100 cm) and fractions:
 ```python
 sl.sheets_needed(big, "a4")                        # → (cols, rows)
 tiles = sl.tile_to_paper(big, "a3", margin_mm=10, overlap_mm=10)
+tiles = sl.tile_to_paper(big, "a3", frame_mm=10)   # clear a 1 cm margin on each sheet
+# add frame_width_mm=0.5 to also draw a visible border (a cut path)
 
 # one call: size by physical width or by sheet count, then tile
 scaled, tiles = sl.poster(stencil, "a4", width_mm=420)   # ≈ A2 across A4
 scaled, tiles = sl.poster(stencil, "pliego", cols=2)     # 2 pliegos wide
 for t in tiles:
     sl.write_pdf(t.stencil, f"sheet_{t.name}.pdf")        # each in mm, 1:1
+
+# multi-ink: split per colour plate first, so each ink cuts on its own sheet
+for plate in sl.split_to_plates(big, with_marks=False):   # cyan / magenta / …
+    name = plate.layers[0].name
+    for t in sl.tile_to_paper(plate, "medio_pliego"):
+        sl.write_pdf(t.stencil, f"{name}_{t.name}.pdf")   # e.g. cyan_r0c0.pdf
 ```
 
 Resolution is independent of size — generate the screen in pixels
@@ -496,6 +538,43 @@ cut = sl.optimize_for_cutting(sl.build_stencil(sep.cmyk(arr), (w, h)))
 > (the thin web between dots stays fragile) — optimization removes every
 > *isolated* island and bridges the rest; use a coarser `cell`, a connected
 > pattern, or bolder art if `analyze_cuttability` still flags too much.
+
+**Grouped cut strategy (opt-in).** Pass `strategy="grouped"` for a
+pattern-specific cut prep instead of the default raster bridge/merge. Line
+screens (`line_screen` / `lines` / `threshold_lines`) are left **exactly as
+drawn** (they already self-bridge), and the shape screens (`dots`, `hexagons`,
+`stipple`, `splotches`) have their **touching** shapes merged into one clean cut
+mass while isolated shapes stay verbatim — so a dark blob becomes a single
+coherent polygon rather than a pile of overlapping circles. The default
+(`strategy="legacy"`) is unchanged.
+
+```python
+cut = sl.halftone_stencil("photo.jpg", pattern="dots", strategy="grouped")
+
+# or apply it to a stencil you built yourself
+masses = sl.merge_touching_shapes(sl.build_stencil(sep.grayscale(arr), (w, h),
+                                                   pattern="hexagons"))
+cut = sl.cut_grouped(my_stencil, "dots")    # full per-pattern dispatch
+```
+
+**Support grid / mesh (opt-in).** `support_grid` confines each layer's cut to a
+regular **mesh** — like a metal grid or a die over leather: a single connected
+lattice of material with a hole at every pattern cell. The cut is intersected
+with the holes (`cut ∩ openings`), so a material **wall** (`width` px) always
+survives between neighbouring cells — the plate stays one connected piece and
+**nothing falls out**, while the cut inside each hole still follows the pattern
+(dot / hex size ∝ coverage). Defined for the regular-lattice `dots` and
+`hexagons` screens; other patterns are returned unchanged.
+
+```python
+s = sep.grayscale(arr)
+st = sl.build_stencil(s, (w, h), pattern="dots", cell=8)
+st = sl.support_grid(st, s, pattern="dots", cell=8, width=2)   # mesh wall = 2 px
+cut = sl.cut_ready(st, "dots")
+```
+
+On the tanuki dots screen the mesh takes the per-plate islands to **zero** (the
+material is one connected body), turning the cuttability verdict green.
 
 ---
 

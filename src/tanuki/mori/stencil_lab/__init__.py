@@ -81,7 +81,7 @@ from .registration import (
     registration_marks,
     split_to_plates,
 )
-from .tiling import Tile, clip_to_rect, tile_grid, tile_stencil
+from .tiling import Tile, apply_frame, clip_to_rect, sheet_frame, tile_grid, tile_stencil
 from .sizing import (
     PAPER,
     fit_to_physical,
@@ -94,7 +94,19 @@ from .sizing import (
     sheets_needed,
     tile_to_paper,
 )
-from .pipeline import build_stencil, halftone_stencil, optimize_for_cutting
+from .pipeline import (
+    build_stencil,
+    carrier_mask,
+    carrier_stencil,
+    cut_cleanup,
+    cut_grouped,
+    cut_ready,
+    halftone_stencil,
+    merge_touching_shapes,
+    mesh_openings,
+    optimize_for_cutting,
+    support_grid,
+)
 
 __all__ = [
     # submodules
@@ -167,6 +179,8 @@ __all__ = [
     "tile_stencil",
     "tile_grid",
     "clip_to_rect",
+    "sheet_frame",
+    "apply_frame",
     # physical sizing / printing on sheets
     "PAPER",
     "paper_size",
@@ -182,4 +196,12 @@ __all__ = [
     "build_stencil",
     "halftone_stencil",
     "optimize_for_cutting",
+    "cut_cleanup",
+    "cut_ready",
+    "cut_grouped",
+    "merge_touching_shapes",
+    "support_grid",
+    "mesh_openings",
+    "carrier_stencil",
+    "carrier_mask",
 ]

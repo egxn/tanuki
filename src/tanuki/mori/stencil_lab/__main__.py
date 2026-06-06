@@ -21,7 +21,7 @@ from .export import (
 from .fabrication import StencilMask, analyze_cuttability
 from .patterns import PATTERN_NAMES
 from .pipeline import halftone_stencil
-from .registration import add_registration_marks
+from .registration import add_registration_marks, split_to_plates
 from .sizing import PAPER, fit_to_physical, tile_to_paper
 from .tiling import tile_stencil
 
@@ -60,6 +60,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pattern", default="dots", choices=list(PATTERN_NAMES),
                         help="pattern screen to apply")
     parser.add_argument("--cell", type=float, default=8.0, help="pattern cell/spacing (px)")
+    parser.add_argument("--carrier", action="store_true",
+                        help="use the pattern as a threshold carrier (cut = threshold ∩ pattern)")
+    parser.add_argument("--threshold", type=float, default=0.5,
+                        help="[carrier] cut where ink coverage ≥ this")
+    parser.add_argument("--duty", type=float, default=0.5,
+                        help="[carrier] pattern density (0–1); leaves the rest as bridges")
     parser.add_argument("--max-side", type=int, default=1000, help="downscale longest side to N px")
     parser.add_argument("--registration", default=None,
                         choices=["crosshair", "target", "corner"],
@@ -96,7 +102,8 @@ def main(argv: list[str] | None = None) -> int:
     stencil = halftone_stencil(
         args.image, method=args.method, pattern=args.pattern,
         cell=args.cell, max_side=args.max_side,
-        optimize=not args.no_optimize,
+        optimize=not args.no_optimize, carrier=args.carrier,
+        threshold=args.threshold, duty=args.duty,
         min_feature_px=args.min_feature, bridge_width=args.bridge_width,
     )
     if args.registration:
@@ -122,15 +129,23 @@ def main(argv: list[str] | None = None) -> int:
         stencil = fit_to_physical(stencil, width_mm=bw)
 
     if args.paper:
-        tiles = tile_to_paper(stencil, args.paper, landscape=args.landscape,
-                              margin_mm=args.paper_margin, overlap_mm=args.paper_overlap)
-        for tile in tiles:
-            tpath = out.with_name(f"{out.stem}_{tile.name}{out.suffix}")
-            _write(args.format, tile.stencil, tpath, args)
+        # one set of sheets per plate — each colour is cut on its own sheet
+        plates = (split_to_plates(stencil, with_marks=False)
+                  if len(stencil.layers) > 1 else [stencil])
+        n = 0
+        for plate in plates:
+            name = plate.layers[0].name if plate.layers else "plate"
+            for tile in tile_to_paper(plate, args.paper, landscape=args.landscape,
+                                      margin_mm=args.paper_margin,
+                                      overlap_mm=args.paper_overlap):
+                tpath = out.with_name(f"{out.stem}_{name}_{tile.name}{out.suffix}")
+                _write(args.format, tile.stencil, tpath, args)
+                n += 1
         print(
-            f"Wrote {len(tiles)} {args.paper.upper()} sheets ({args.format}) for a "
+            f"Wrote {n} {args.paper.upper()} sheets ({args.format}, "
+            f"{len(plates)} plate(s)) for a "
             f"{stencil.width:.0f}×{stencil.height:.0f} mm design → "
-            f"{out.stem}_r#c#{out.suffix}"
+            f"{out.stem}_<plate>_r#c#{out.suffix}"
         )
         return 0
 
