@@ -1,8 +1,0 @@
-# Stencil Lab — runtime dependencies (image pipeline).
-# These belong to the stencil_lab only; the tanuki core DSL needs none of them.
-#
-#   pip install -r requirements.txt
-#
-numpy
-scipy
-Pillow

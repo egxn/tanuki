@@ -49,7 +49,7 @@ def test_belt_holder_in_blender():
 
 
 def test_tray_in_blender():
-    from tanuki.mori.print_labo.tray import create_tray
+    from tanuki.mori.print_labo.misc_prints.tray import create_tray
 
     graph = create_tray()
     source = compile_to_source(graph)
@@ -68,7 +68,7 @@ def test_claw_in_blender():
 
 
 def test_minolta_tap_in_blender():
-    from tanuki.mori.print_labo.minolta_tap import create_tap
+    from tanuki.mori.print_labo.misc_prints.minolta_tap import create_tap
 
     graph = create_tap()
     source = compile_to_source(graph)
@@ -79,7 +79,7 @@ def test_minolta_tap_in_blender():
 # ── Complex models ─────────────────────────────────────────────
 
 def test_mogura_clockwork_in_blender():
-    from tanuki.mori.print_labo.mogura_exposimeter import create_clockwork_knob
+    from tanuki.mori.print_labo.misc_prints.mogura_exposimeter import create_clockwork_knob
 
     graph = create_clockwork_knob()
     source = compile_to_source(graph)
@@ -88,7 +88,7 @@ def test_mogura_clockwork_in_blender():
 
 
 def test_trap_light_case_in_blender():
-    from tanuki.mori.print_labo.trap_light import create_case
+    from tanuki.mori.print_labo.misc_prints.trap_light import create_case
 
     graph = create_case()
     source = compile_to_source(graph)
@@ -97,7 +97,7 @@ def test_trap_light_case_in_blender():
 
 
 def test_neganuki_columns_in_blender():
-    from tanuki.mori.print_labo.neganuki_scanner import create_columns
+    from tanuki.mori.print_labo.misc_prints.neganuki_scanner import create_columns
 
     graph = create_columns()
     source = compile_to_source(graph)

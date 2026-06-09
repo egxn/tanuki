@@ -28,7 +28,7 @@ def test_belt_holder():
 # ── tray ───────────────────────────────────────────────────────
 
 def test_tray():
-    from tanuki.mori.print_labo.tray import create_tray
+    from tanuki.mori.print_labo.misc_prints.tray import create_tray
 
     graph = create_tray()
     source = compile_to_source(graph)
@@ -53,7 +53,7 @@ def test_claw():
 # ── trap_light — multiple sub‑models ─────────────────────────
 
 def test_trap_light_case():
-    from tanuki.mori.print_labo.trap_light import create_case
+    from tanuki.mori.print_labo.misc_prints.trap_light import create_case
 
     graph = create_case()
     source = compile_to_source(graph)
@@ -62,7 +62,7 @@ def test_trap_light_case():
 
 
 def test_trap_light_film_35mm():
-    from tanuki.mori.print_labo.trap_light import create_cartridge_film_35mm
+    from tanuki.mori.print_labo.misc_prints.trap_light import create_cartridge_film_35mm
 
     graph = create_cartridge_film_35mm()
     source = compile_to_source(graph)
@@ -70,7 +70,7 @@ def test_trap_light_film_35mm():
 
 
 def test_trap_light_film_roll():
-    from tanuki.mori.print_labo.trap_light import create_film_roll
+    from tanuki.mori.print_labo.misc_prints.trap_light import create_film_roll
 
     graph = create_film_roll()
     source = compile_to_source(graph)
@@ -78,7 +78,7 @@ def test_trap_light_film_roll():
 
 
 def test_trap_light_knockout_top():
-    from tanuki.mori.print_labo.trap_light import create_knockout_covers_top
+    from tanuki.mori.print_labo.misc_prints.trap_light import create_knockout_covers_top
 
     graph = create_knockout_covers_top()
     source = compile_to_source(graph)
@@ -86,7 +86,7 @@ def test_trap_light_knockout_top():
 
 
 def test_trap_light_knockout_bottom():
-    from tanuki.mori.print_labo.trap_light import create_knockout_covers_bottom
+    from tanuki.mori.print_labo.misc_prints.trap_light import create_knockout_covers_bottom
 
     graph = create_knockout_covers_bottom()
     source = compile_to_source(graph)
@@ -94,7 +94,7 @@ def test_trap_light_knockout_bottom():
 
 
 def test_trap_light_film_lever():
-    from tanuki.mori.print_labo.trap_light import create_film_lever
+    from tanuki.mori.print_labo.misc_prints.trap_light import create_film_lever
 
     graph = create_film_lever()
     source = compile_to_source(graph)
@@ -102,7 +102,7 @@ def test_trap_light_film_lever():
 
 
 def test_trap_light_film_box():
-    from tanuki.mori.print_labo.trap_light import create_film_box
+    from tanuki.mori.print_labo.misc_prints.trap_light import create_film_box
 
     graph = create_film_box()
     source = compile_to_source(graph)
@@ -110,7 +110,7 @@ def test_trap_light_film_box():
 
 
 def test_trap_light_cog_roll():
-    from tanuki.mori.print_labo.trap_light import cog_roll
+    from tanuki.mori.print_labo.misc_prints.trap_light import cog_roll
 
     graph = cog_roll()
     source = compile_to_source(graph)
@@ -118,7 +118,7 @@ def test_trap_light_cog_roll():
 
 
 def test_trap_light_lens_mount():
-    from tanuki.mori.print_labo.trap_light import lens_mount
+    from tanuki.mori.print_labo.misc_prints.trap_light import lens_mount
 
     graph = lens_mount()
     source = compile_to_source(graph)
@@ -128,7 +128,7 @@ def test_trap_light_lens_mount():
 # ── minolta_tap ────────────────────────────────────────────────
 
 def test_minolta_tap():
-    from tanuki.mori.print_labo.minolta_tap import create_tap
+    from tanuki.mori.print_labo.misc_prints.minolta_tap import create_tap
 
     graph = create_tap()
     source = compile_to_source(graph)
@@ -139,7 +139,7 @@ def test_minolta_tap():
 # ── mogura_exposimeter ─────────────────────────────────────────
 
 def test_mogura_container():
-    from tanuki.mori.print_labo.mogura_exposimeter import create_container
+    from tanuki.mori.print_labo.misc_prints.mogura_exposimeter import create_container
 
     graph = create_container()
     source = compile_to_source(graph)
@@ -147,7 +147,7 @@ def test_mogura_container():
 
 
 def test_mogura_box():
-    from tanuki.mori.print_labo.mogura_exposimeter import create_box
+    from tanuki.mori.print_labo.misc_prints.mogura_exposimeter import create_box
 
     graph = create_box()
     source = compile_to_source(graph)
@@ -155,7 +155,7 @@ def test_mogura_box():
 
 
 def test_mogura_clockwork_knob():
-    from tanuki.mori.print_labo.mogura_exposimeter import create_clockwork_knob
+    from tanuki.mori.print_labo.misc_prints.mogura_exposimeter import create_clockwork_knob
 
     graph = create_clockwork_knob()
     source = compile_to_source(graph)
@@ -165,7 +165,7 @@ def test_mogura_clockwork_knob():
 # ── film_spooler (35_120) ─────────────────────────────────────
 
 def test_film_spooler():
-    from tanuki.mori.print_labo.film_spooler import create_film_spooler
+    from tanuki.mori.print_labo.misc_prints.film_spooler import create_film_spooler
 
     graph = create_film_spooler()
     source = compile_to_source(graph)
@@ -173,7 +173,7 @@ def test_film_spooler():
 
 
 def test_film_spooler_h_base_120():
-    from tanuki.mori.print_labo.film_spooler import create_h_base_120
+    from tanuki.mori.print_labo.misc_prints.film_spooler import create_h_base_120
 
     graph = create_h_base_120()
     source = compile_to_source(graph)
@@ -205,7 +205,7 @@ _SCANNER_FUNCS = [
 
 @pytest.mark.parametrize("func_name", _SCANNER_FUNCS)
 def test_neganuki_scanner(func_name):
-    import tanuki.mori.print_labo.neganuki_scanner as mod
+    import tanuki.mori.print_labo.misc_prints.neganuki_scanner as mod
 
     func = getattr(mod, func_name)
     graph = func()

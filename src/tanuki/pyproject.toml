@@ -23,10 +23,6 @@ Issues = "https://github.com/egxn/tanuki/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
-# Stencil Lab only — the tanuki core DSL needs none of these.
-# Equivalent local manifests live in mori/stencil_lab/requirements*.txt
-stencil = ["numpy", "scipy", "Pillow"]
-gui = ["tanuki[stencil]", "fastapi", "uvicorn", "python-multipart"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
