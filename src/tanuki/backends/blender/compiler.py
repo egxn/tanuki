@@ -753,7 +753,12 @@ def _compile_boolean(node: IRBoolean, em: _Emitter) -> str:
     em.line(f"{var}.location = {loc}")
     em.line(f'{var}.label = {node.label!r}')
     em.line(f'{var}.operation = "{_BOOLEAN_OP_STR[node.operation]}"')
-    em.line(f'{var}.solver = "EXACT"')
+    # Solver may not exist on older Blender (e.g. MANIFOLD added in 4.5) — fall
+    # back to EXACT if the requested value is unavailable.
+    em.line(f'try:')
+    em.line(f'    {var}.solver = "{getattr(node, "solver", "EXACT")}"')
+    em.line(f'except (TypeError, ValueError):')
+    em.line(f'    {var}.solver = "EXACT"')
 
     if node.operation == BooleanOp.DIFFERENCE:
         # First child → Mesh 1 (socket index 0), rest → Mesh 2 (socket index 1)

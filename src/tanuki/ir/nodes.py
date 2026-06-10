@@ -128,6 +128,9 @@ class IRBoolean(IRNode):
     # For DIFFERENCE: first element is the target, rest are operands.
     # For UNION/INTERSECT: all elements are equal operands.
     children: tuple[IRNode, ...] = ()
+    # Mesh Boolean solver: "EXACT" (precise, fragile on self-intersecting input),
+    # "FLOAT" (fast, tolerant), or "MANIFOLD" (fast, clean — needs manifold input).
+    solver: str = "EXACT"
 
 
 @dataclass(frozen=True)
