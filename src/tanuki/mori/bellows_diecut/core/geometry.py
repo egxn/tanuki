@@ -95,6 +95,9 @@ class FoldPattern:
     fold_lines: list[FoldLine] = field(default_factory=list)
     vertices: list[Point2] = field(default_factory=list)
     seam: bool = True
+    #: Tile pitch ``(tx, ty)`` (mm) when this is a tessellation — lets the
+    #: foldcore recover the repeat lattice (e.g. to colour the diamond grid).
+    tile: tuple[float, float] | None = None
 
     # -- construction helpers ----------------------------------------------
 

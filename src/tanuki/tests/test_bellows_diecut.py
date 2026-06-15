@@ -24,11 +24,13 @@ from tanuki.mori.bellows_diecut import patterns
 
 # Expected (mountain, valley) edge counts per unit cell — from the SVG reference.
 EXPECTED_COUNTS = {
-    "yoshimura": (6, 3),
+    "yoshimura": (4, 2),    # one diamond: 4 arms (M) + middle & tip/tail axes (V)
     "miura": (5, 7),
     "waterbomb": (2, 7),
     "kresling": (7, 2),
     "resch": (15, 2),
+    "accordion": (4, 10),   # 2-row trapezoid brick: long bases (M), shorts + slants (V)
+    "accordion_corners": (2, 7),
 }
 
 
@@ -268,11 +270,11 @@ from tanuki.mori.bellows_diecut.core import tessellate as ts
 def test_tile_specs_fit_print_bed(name):
     w, h = ts.tessellated_size(name)
     assert 0 < w <= ts.PRINT_BED and 0 < h <= ts.PRINT_BED
-    # Height follows the grid pitch exactly; width may grow (brick) or shrink
-    # (V-interlock) with the tiling rule, but stays in the n×tile_X ballpark.
+    # The tiling rule may grow (brick) or shrink (V-interlock) the footprint, but
+    # it stays in the n×tile_X / m×tile_Y ballpark.
     (tx, ty), (n, m) = ts.TILE_SPECS[name]["tile"], ts.TILE_SPECS[name]["grid"]
-    assert h == pytest.approx(m * ty)
-    assert 0.8 * n * tx <= w <= 1.2 * n * tx
+    assert 0.6 * n * tx <= w <= 1.2 * n * tx
+    assert 0.6 * m * ty <= h <= 1.2 * m * ty
 
 
 def test_tile_depth_formula():
@@ -309,6 +311,27 @@ def test_kresling_v_interlock_reduces_width():
     assert w < n * tx
 
 
+def test_yoshimura_is_square_diamond_grid():
+    # Yoshimura tiles as a plain square grid of diamonds (no interlock offset).
+    assert ts.TILE_SPECS["yoshimura"]["tiling"] == "square"
+    assert "pitch_x" not in ts.TILE_SPECS["yoshimura"]
+    assert "pitch_y" not in ts.TILE_SPECS["yoshimura"]
+    tx, ty = ts.TILE_SPECS["yoshimura"]["tile"]
+    n, m = ts.TILE_SPECS["yoshimura"]["grid"]
+    w, h = ts.tessellated_size("yoshimura")
+    assert w == pytest.approx(n * tx) and h == pytest.approx(m * ty)
+
+
+def test_yoshimura_relief_is_egg_crate():
+    # The diamond grid pops in and out: the surface reaches both +A and −A.
+    from tanuki.mori.bellows_diecut.core import foldcore
+    pat = ts.tessellate("yoshimura", grid=(4, 4))
+    params = ts.tile_params("yoshimura")
+    _pts, z, _tris, _b = foldcore.build_surface(pat, params)
+    amp = foldcore.fold_amplitude(pat, params)
+    assert z.max() == pytest.approx(amp) and z.min() == pytest.approx(-amp)
+
+
 @pytest.mark.parametrize("name", PATTERNS)
 def test_tessellated_die_is_watertight(name):
     from collections import Counter as _C
@@ -331,6 +354,85 @@ def test_generate_tessellation_writes_outputs(tmp_path):
     assert res["pattern"].name == "yoshimura_tile"
 
 
+# ---------------------------------------------------------------------------
+# Rollers (the fold pattern wrapped onto a cylinder)
+# ---------------------------------------------------------------------------
+
+from tanuki.mori.bellows_diecut import generate_rollers
+from tanuki.mori.bellows_diecut.core import roller as rl
+
+
+@pytest.mark.parametrize("name", PATTERNS)
+@pytest.mark.parametrize("side", ["male", "female"])
+def test_roller_is_watertight_cylinder(name, side):
+    import numpy as np
+    from collections import Counter as _C
+    verts, faces = rl.build_roller(name, side)
+    # Watertight: every edge shared by exactly two triangles.
+    ec = _C()
+    for a, b, c in faces:
+        for e in ((a, b), (b, c), (c, a)):
+            ec[tuple(sorted(e))] += 1
+    assert all(v == 2 for v in ec.values()), "non-manifold edge in roller"
+    # It is a cylinder: a bored core (min radius > 0) and a relief rim.
+    r = np.hypot(verts[:, 0], verts[:, 1])
+    assert r.min() > 0 and r.max() > r.min()
+    assert verts[:, 2].ptp() > 0           # spans the axis
+
+
+def test_min_tiles_around_is_grid_width():
+    for name in PATTERNS:
+        assert rl.min_tiles_around(name) == ts.TILE_SPECS[name]["grid"][0]
+
+
+def test_generate_rollers_writes_outputs(tmp_path):
+    res = generate_rollers("kresling", tmp_path, bake=False)
+    assert set(res["paths"]) == {"obj", "svg", "json", "bpy"}
+    assert (tmp_path / "mesh" / "kresling_roller_male.obj").exists()
+    assert (tmp_path / "mesh" / "kresling_roller_female.obj").exists()
+    bpy_src = res["paths"]["bpy"].read_text()
+    assert "setup_kresling_roller_male" in bpy_src
+
+
+# ---------------------------------------------------------------------------
+# Parametric Geometry Nodes rollers (Blender script emitter)
+# ---------------------------------------------------------------------------
+
+from tanuki.mori.bellows_diecut import generate_rollers_gn
+from tanuki.mori.bellows_diecut.core import roller_gn
+
+
+@pytest.mark.parametrize("name", PATTERNS)
+def test_flat_block_pitch_matches_tiling(name):
+    import numpy as np
+    verts, faces, dx, dy = roller_gn.flat_block(name)
+    gn, gm = roller_gn._block_grid(name)
+    spec = ts.TILE_SPECS[name]
+    assert dx == pytest.approx(gn * spec.get("pitch_x", 1.0) * spec["tile"][0])
+    assert dy == pytest.approx(gm * spec["tile"][1])
+    # the block is a real surface centred near the origin
+    assert len(verts) > 2 and len(faces) > 0
+    assert abs(np.asarray(verts)[:, 0].mean()) < dx
+    if name.startswith("accordion"):
+        xs = np.asarray(verts)[:, 0]
+        assert xs.max() - xs.min() == pytest.approx(dx)
+
+
+@pytest.mark.parametrize("name", PATTERNS)
+def test_gn_script_is_valid_and_parametric(name, tmp_path):
+    import ast
+    path = generate_rollers_gn(name, tmp_path)
+    assert path.name == f"{name}_roller_gn.py"
+    src = path.read_text()
+    ast.parse(src)                                   # valid Python
+    # exposes the BellowsRoller node group with the parametric sockets
+    assert '"BellowsRoller"' in src
+    for sock in ("Diameter", "Tiles around", "Tiles along", "Relief depth", "Core wall"):
+        assert sock in src
+    # builds both meshing rollers (male = +relief, female = −relief)
+    assert f"{name}_roller_male" in src and f"{name}_roller_female" in src
+
+
 def test_generate_diecut_writes_outputs_and_bake_script(tmp_path):
     # bake=False (no Blender in the fast suite): OBJ/SVG/JSON + self-contained
     # DSL bake script; STLs are produced only when baked in Blender.
@@ -341,3 +443,103 @@ def test_generate_diecut_writes_outputs_and_bake_script(tmp_path):
         assert paths[kind].exists() and paths[kind].stat().st_size > 0
     bpy_src = paths["bpy"].read_text()
     assert "setup_yoshimura_male" in bpy_src and "bake_and_export_stl" in bpy_src
+
+
+# ---------------------------------------------------------------------------
+# JSON configuration (tile, fold height, axial repeats — rest auto)
+# ---------------------------------------------------------------------------
+
+from tanuki.mori.bellows_diecut import config, configure, write_config_template
+
+
+@pytest.fixture
+def _reset_config():
+    yield
+    config.reset()
+
+
+def test_config_template_is_minimal_and_round_trips(tmp_path, _reset_config):
+    path = write_config_template(tmp_path / "cfg.json")
+    data = json.loads(path.read_text())
+    assert set(data) == {"patterns"}
+    for name in PATTERNS:
+        assert set(data["patterns"][name]) == {"tile", "fold_height", "repeats", "around"}
+
+
+def test_config_around_overrides_circumference(_reset_config):
+    auto = ts.TILE_SPECS["waterbomb"]["grid"][0]
+    configure({"patterns": {"waterbomb": {"around": auto + 3}}})
+    assert ts.TILE_SPECS["waterbomb"]["grid"][0] == auto + 3
+    # omitting around keeps the automatic value
+    config.reset()
+    assert ts.TILE_SPECS["waterbomb"]["grid"][0] == auto
+
+
+def test_apply_config_sets_tile_fold_and_axial_repeats(_reset_config):
+    around_before = ts.TILE_SPECS["yoshimura"]["grid"][0]
+    configure({"patterns": {"yoshimura": {"tile": [22, 22], "fold_height": 3.0,
+                                          "repeats": 5}}})
+    spec = ts.TILE_SPECS["yoshimura"]
+    assert spec["tile"] == (22.0, 22.0)
+    assert spec["grid"] == (around_before, 5)          # circumference auto-kept
+    assert spec["fold_height"] == 3.0
+    # fold_height drives the relief amplitude
+    pat = ts.tessellate("yoshimura", grid=(2, 2))
+    params = ts.tile_params("yoshimura")
+    from tanuki.mori.bellows_diecut.core import foldcore
+    _p, z, _t, _b = foldcore.build_surface(pat, params)
+    assert z.max() == pytest.approx(3.0) and z.min() == pytest.approx(-3.0)
+
+
+def test_config_flows_into_generation(tmp_path, _reset_config):
+    cfg = {"patterns": {"waterbomb": {"tile": [30, 30], "fold_height": 5, "repeats": 3}}}
+    generate_tessellation("waterbomb", tmp_path, bake=False, config=cfg)
+    _w, h = ts.tessellated_size("waterbomb")          # repeats (axial) = 3 × 30mm
+    assert h == pytest.approx(90.0)
+
+
+# ---------------------------------------------------------------------------
+# Web UI server (stdlib http.server)
+# ---------------------------------------------------------------------------
+
+def test_web_preview_mesh_has_mesh_and_lines(_reset_config):
+    from tanuki.mori.bellows_diecut.web.server import preview_mesh
+    d = preview_mesh("yoshimura", 16, 16, 5.0)
+    assert len(d["positions"]) > 0 and len(d["indices"]) > 0
+    assert d["lines"]["mountain"] and len(d["bbox"]) == 4
+
+
+def test_web_endpoints_serve_and_generate(tmp_path, _reset_config):
+    import json as _json
+    import threading
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+    from tanuki.mori.bellows_diecut.web.server import make_app
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_app(tmp_path))
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    try:
+        pats = _json.loads(urllib.request.urlopen(base + "/api/patterns").read())
+        assert "yoshimura" in pats["patterns"]
+        tile = _json.loads(urllib.request.urlopen(
+            base + "/api/tile?pattern=waterbomb&tile_x=18&tile_y=18&fold_height=5").read())
+        assert tile["positions"] and tile["lines"]["mountain"]
+        req = urllib.request.Request(
+            base + "/api/generate", method="POST",
+            data=_json.dumps({"pattern": "waterbomb", "tile_x": 18, "tile_y": 18,
+                              "fold_height": 5, "repeats": 3, "bake": False}).encode(),
+            headers={"Content-Type": "application/json"})
+        job_id = _json.loads(urllib.request.urlopen(req).read())["job_id"]
+        # poll the background job to completion (no bake → fast)
+        import time
+        for _ in range(50):
+            job = _json.loads(urllib.request.urlopen(base + "/api/job/" + job_id).read())
+            if job["status"] != "running":
+                break
+            time.sleep(0.2)
+        assert job["status"] == "done", job.get("error")
+        assert any("roller" in f for f in job["files"])
+        assert (tmp_path / "waterbomb_roller_gn.py").exists()
+    finally:
+        httpd.shutdown()

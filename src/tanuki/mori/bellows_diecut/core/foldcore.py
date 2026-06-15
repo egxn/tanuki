@@ -177,14 +177,40 @@ def faces(pts, edge_list):
 # 3. Vertex heights (mountain / valley balance)
 # ---------------------------------------------------------------------------
 
-def vertex_heights(pts, edge_list, amplitude: float):
-    """Z per vertex: ``+amplitude`` on mountains, ``−amplitude`` on valleys."""
+def _seam_pairs(pts, wrap_period: float):
+    """Match left-edge (``x≈xmin``) to right-edge (``x≈xmax``) vertices by ``y``.
+
+    Yields ``(left_i, right_j)`` index pairs — the vertices that coincide once the
+    strip of width *wrap_period* is wrapped into a cylinder.
+    """
+    x = pts[:, 0]
+    xmin, xmax = float(x.min()), float(x.max())
+    tol = 1e-3 * max(xmax - xmin, 1.0)
+    left = {round(float(pts[i, 1]), 4): i
+            for i in np.where(np.abs(x - xmin) < tol)[0]}
+    for j in np.where(np.abs(x - xmax) < tol)[0]:
+        i = left.get(round(float(pts[j, 1]), 4))
+        if i is not None:
+            yield i, j
+
+
+def vertex_heights(pts, edge_list, amplitude: float, wrap_period: float | None = None):
+    """Z per vertex: ``+amplitude`` on mountains, ``−amplitude`` on valleys.
+
+    When *wrap_period* is given the relief is made **periodic** across the wrap
+    seam: matched left/right edge vertices share the combined mountain/valley
+    balance of both, so a wrapped cylinder closes without a relief step.
+    """
     bal = np.zeros((len(pts), 2))           # [mountains, valleys] incident
     for (i, j, kind) in edge_list:
         if kind == FoldType.MOUNTAIN:
             bal[i, 0] += 1; bal[j, 0] += 1
         elif kind == FoldType.VALLEY:
             bal[i, 1] += 1; bal[j, 1] += 1
+    if wrap_period is not None:
+        for i, j in _seam_pairs(pts, wrap_period):
+            combined = bal[i] + bal[j]
+            bal[i] = combined; bal[j] = combined
     tot = bal.sum(axis=1)
     z = np.where(tot > 0, amplitude * (bal[:, 0] - bal[:, 1]) / np.maximum(tot, 1), 0.0)
     return z
@@ -194,12 +220,194 @@ def vertex_heights(pts, edge_list, amplitude: float):
 # 4. Folded surface (flat tilted facets)
 # ---------------------------------------------------------------------------
 
-def build_surface(pattern: FoldPattern, params: BellowsParams):
-    """Return ``(verts2d (N,2), z (N,), tris list[(a,b,c)], boundary_loop)``."""
+def _diamond_surface(pattern, pts, edge_list, fcs, amplitude, wrap_period=None):
+    """Egg-crate diamond surface for the Yoshimura grid.
+
+    Each diamond is the two large faces sharing a horizontal *middle-axis* valley
+    edge; raise their shared centre to ``±amplitude`` (alternating by lattice
+    parity) so the diamonds pop in and out, and leave the small inter-diamond gaps
+    flat.  Returns ``(pts, z, tris)``.  (The diamond grid's seam vertices already
+    sit at the flat base height, so *wrap_period* needs no special handling.)
+    """
+    pts = list(map(tuple, pts))
+    z = [0.0] * len(pts)
+    tx, ty = pattern.tile
+    x0 = min(p[0] for p in pts)
+    y0 = min(p[1] for p in pts)
+
+    def _is_centre(cx, cy) -> bool:
+        # Diamond centres sit at (x0+tx/2+i·tx, y0+ty/2+j·ty); only the middle-axis
+        # edge of a diamond has its midpoint there (between-row edges do not).
+        fx = ((cx - x0 - tx / 2) / tx) % 1.0
+        fy = ((cy - y0 - ty / 2) / ty) % 1.0
+        return min(fx, 1 - fx) < 1e-3 and min(fy, 1 - fy) < 1e-3
+
+    def _area(loop):
+        a = 0.0
+        for k in range(len(loop)):
+            x0, y0 = pts[loop[k]]
+            x1, y1 = pts[loop[(k + 1) % len(loop)]]
+            a += x0 * y1 - x1 * y0
+        return abs(a) / 2.0
+
+    areas = [_area(l) for l in fcs]
+    thresh = 0.5 * (min(areas) + max(areas))   # diamond halves vs small gaps
+
+    e2f: dict[frozenset, list[int]] = defaultdict(list)
+    for fi, loop in enumerate(fcs):
+        for k in range(len(loop)):
+            e2f[frozenset((loop[k], loop[(k + 1) % len(loop)]))].append(fi)
+
+    tris: list[tuple[int, int, int]] = []
+    big = [a > thresh for a in areas]
+    consumed: set[int] = set()
+    # Diamonds: the horizontal valley edge shared by the two large halves — raise
+    # their shared centre to ±amplitude (alternating) into a pop-in/out pyramid.
+    for e, fis in e2f.items():
+        if len(fis) != 2 or not (big[fis[0]] and big[fis[1]]):
+            continue
+        a, b = tuple(e)
+        (ax, ay), (bx, by) = pts[a], pts[b]
+        if abs(ay - by) > 1e-6:
+            continue
+        cx, cy = 0.5 * (ax + bx), 0.5 * (ay + by)
+        if not _is_centre(cx, cy):
+            continue
+        parity = (round((cx - x0 - tx / 2) / tx) + round((cy - y0 - ty / 2) / ty)) % 2
+        ci = len(pts)
+        pts.append((cx, cy))
+        z.append(amplitude if parity == 0 else -amplitude)
+        for fi in fis:
+            loop = fcs[fi]
+            for k in range(len(loop)):
+                p, q = loop[k], loop[(k + 1) % len(loop)]
+                if frozenset((p, q)) != e:
+                    tris.append((p, q, ci))
+        consumed.update(fis)
+    # Everything else (inter-diamond gaps, clipped boundary halves) stays flat —
+    # fan from the face centroid (robust for the non-convex gap polygons).
+    for fi, loop in enumerate(fcs):
+        if fi in consumed:
+            continue
+        cx = sum(pts[i][0] for i in loop) / len(loop)
+        cy = sum(pts[i][1] for i in loop) / len(loop)
+        mz = sum(z[i] for i in loop) / len(loop)
+        ci = len(pts)
+        pts.append((cx, cy))
+        z.append(mz)
+        for k in range(len(loop)):
+            tris.append((loop[k], loop[(k + 1) % len(loop)], ci))
+    return pts, z, tris
+
+
+def _accordion_surface(pattern: FoldPattern, params: BellowsParams,
+                       round_x: bool = False):
+    """Clean **flat-topped** trapezoidal corrugation (the accordion's relief).
+
+    A trapezoidal wave along Y (clamped sine/cosine → flat crests/troughs at
+    ``±amplitude``), constant around X, so the cross-section is a real trapezoid
+    and wrapping makes clean bellows rings.  The flat pattern (SVG) shows the
+    trapezoid brick; this is its clean folded realisation.  *round_x* subdivides X
+    for a round cylinder (rollers) and shifts the phase so peaks land AT the fold
+    lines rather than between them.
+
+    For **accordion_corners** rollers, narrow axial grooves are cut at the vertical
+    valley fold positions so the corner folds get creased along the roller axis.
+    """
+    tx, ty = pattern.tile
+    x0, y0, x1, y1 = pattern.bounds()
+    nx = max(1, round((x1 - x0) / tx))
+    ny = max(1, round((y1 - y0) / ty))
+    amp = fold_amplitude(pattern, params)
+
+    if round_x:
+        # Roller: cosine puts the ridge/channel peaks exactly AT the mountain/valley
+        # fold line y-positions (y=y0, y=y0+ty/2, …) so the roller's pressure zones
+        # align with the intended crease lines.
+        def zof(y: float) -> float:
+            w = math.cos(2.0 * math.pi * (y - y0) / ty)
+            return amp * max(-1.0, min(1.0, 1.7 * w))
+    else:
+        # Tile die: sine keeps the steepest-slope (sharpest crease pressure) at the
+        # fold line positions — the zero-crossings of sine = the fold line y values.
+        def zof(y: float) -> float:
+            w = math.sin(2.0 * math.pi * (y - y0) / ty)
+            return amp * max(-1.0, min(1.0, 1.7 * w))
+
+    # Accordion-corners roller: add axial grooves at the vertical valley fold x
+    # positions so the corner folds are creased along the roller axis.
+    groove_xs: list[float] = []
+    if round_x and pattern.name.startswith("accordion_corners"):
+        for fl in pattern.fold_lines:
+            if (fl.kind == FoldType.VALLEY
+                    and abs(fl.p0[0] - fl.p1[0]) < 1e-9       # vertical
+                    and abs(fl.p1[1] - fl.p0[1]) > ty * 0.4): # spans most of one tile
+                groove_xs.append(fl.p0[0])
+        groove_xs = sorted(set(round(gx, 3) for gx in groove_xs))
+
+    groove_depth = amp * 0.4        # groove is 40 % of the main corrugation depth
+    groove_sigma = tx * 0.06        # Gaussian half-width ≈ 6 % of tile pitch
+
+    def groove_z(x: float) -> float:
+        if not groove_xs:
+            return 0.0
+        d = min(abs(x - gx) for gx in groove_xs)
+        if d > groove_sigma * 4.0:
+            return 0.0
+        return groove_depth * math.exp(-0.5 * (d / groove_sigma) ** 2)
+
+    nrows = max(1, ny) * 12
+    rows = [y0 + (y1 - y0) * r / nrows for r in range(nrows + 1)]
+    nseg = max(nx, 48) if round_x else nx
+    xs = [x0 + (x1 - x0) * k / nseg for k in range(nseg + 1)]
+
+    pts2: list[tuple[float, float]] = []
+    z: list[float] = []
+    rowverts: list[list[int]] = []
+    for y in rows:
+        zc = zof(y)
+        ridx = []
+        for x in xs:
+            ridx.append(len(pts2)); pts2.append((x, y)); z.append(zc - groove_z(x))
+        rowverts.append(ridx)
+    tris: list[tuple[int, int, int]] = []
+    for r in range(len(rows) - 1):
+        top, bot = rowverts[r], rowverts[r + 1]
+        for c in range(len(xs) - 1):
+            a, b = top[c], top[c + 1]
+            d, e = bot[c], bot[c + 1]
+            tris.append((a, b, e)); tris.append((a, e, d))
+
+    pts2 = np.asarray(pts2, float)
+    z = np.asarray(z, float)
+    centre = (pts2.min(axis=0) + pts2.max(axis=0)) / 2.0
+    return pts2 - centre, z, tris, []
+
+
+def build_surface(pattern: FoldPattern, params: BellowsParams,
+                  wrap_period: float | None = None):
+    """Return ``(verts2d (N,2), z (N,), tris list[(a,b,c)], boundary_loop)``.
+
+    *wrap_period* (the roller circumference) makes the relief periodic across the
+    wrap seam so the cylinder closes without a step (see :func:`vertex_heights`).
+    """
+    if pattern.name.startswith("accordion") and pattern.tile is not None:
+        return _accordion_surface(pattern, params, round_x=wrap_period is not None)
+
     pts, edge_list = arrangement(pattern)
     fcs = faces(pts, edge_list)
     amplitude = fold_amplitude(pattern, params)
-    z = vertex_heights(pts, edge_list, amplitude)
+
+    if pattern.name.startswith("yoshimura") and pattern.tile is not None:
+        pts, z, tris = _diamond_surface(pattern, pts, edge_list, fcs, amplitude,
+                                        wrap_period)
+        pts = np.asarray(pts, float)
+        z = np.asarray(z, float)
+        boundary = _boundary_loop(pts, edge_list)
+        centre = (pts.min(axis=0) + pts.max(axis=0)) / 2.0
+        return pts - centre, z, tris, boundary
+
+    z = vertex_heights(pts, edge_list, amplitude, wrap_period)
 
     pts = list(map(tuple, pts))
     z = list(z)
@@ -217,20 +425,18 @@ def build_surface(pattern: FoldPattern, params: BellowsParams):
 
     tris: list[tuple[int, int, int]] = []
     for loop in fcs:
-        if _near_horizontal(loop):
-            # Flat / low-tilt face → tent it from a bumped centroid so no facet
-            # ends up horizontal.
-            cx = sum(pts[i][0] for i in loop) / len(loop)
-            cy = sum(pts[i][1] for i in loop) / len(loop)
-            mz = sum(z[i] for i in loop) / len(loop)
-            bump = 0.5 * amplitude * (1.0 if mz >= 0 else -1.0)
-            ci = len(pts)
-            pts.append((cx, cy)); z.append(mz + bump)
-            for k in range(len(loop)):
-                tris.append((loop[k], loop[(k + 1) % len(loop)], ci))
-        else:
-            for k in range(1, len(loop) - 1):       # fan from loop[0]
-                tris.append((loop[0], loop[k], loop[k + 1]))
+        # Always fan from the face centroid — robust for non-convex faces (a
+        # loop[0] fan overlaps them) and lets near-horizontal faces be tented so
+        # no facet ends up flat.
+        cx = sum(pts[i][0] for i in loop) / len(loop)
+        cy = sum(pts[i][1] for i in loop) / len(loop)
+        mz = sum(z[i] for i in loop) / len(loop)
+        bump = (0.5 * amplitude * (1.0 if mz >= 0 else -1.0)
+                if _near_horizontal(loop) else 0.0)
+        ci = len(pts)
+        pts.append((cx, cy)); z.append(mz + bump)
+        for k in range(len(loop)):
+            tris.append((loop[k], loop[(k + 1) % len(loop)], ci))
 
     pts = np.asarray(pts, float)
     z = np.asarray(z, float)
@@ -295,23 +501,31 @@ def build_die(pattern: FoldPattern, params: BellowsParams, side: str = "male"):
 
 
 def _thicken(pts, tris, boundary, top_z, bottom_z):
-    """Close a surface into a solid: top + bottom layers + boundary walls."""
+    """Close a surface into a solid: top + bottom layers + walls on the open edges.
+
+    The walls are raised on every *open* edge of the surface (an edge used by a
+    single triangle), recovered from ``tris`` directly — so a ragged zigzag
+    perimeter or a periodic seam is closed just as cleanly as a straight bbox
+    outline.  ``boundary`` is accepted for backwards compatibility but unused.
+    """
     n = len(pts)
     verts = np.empty((2 * n, 3))
     verts[:n, :2] = pts; verts[:n, 2] = top_z
     verts[n:, :2] = pts; verts[n:, 2] = bottom_z
 
+    count: dict[frozenset, int] = defaultdict(int)
+    for (a, b, c) in tris:
+        for u, v in ((a, b), (b, c), (c, a)):
+            count[frozenset((u, v))] += 1
+
     faces: list[tuple[int, int, int]] = []
     for (a, b, c) in tris:
         faces.append((a, b, c))                       # top (normals up)
         faces.append((a + n, c + n, b + n))           # bottom (normals down)
-    # Boundary walls between the two layers.
-    L = len(boundary)
-    for k in range(L):
-        a = boundary[k]
-        b = boundary[(k + 1) % L]
-        faces.append((a, b, b + n))
-        faces.append((a, b + n, a + n))
+        for u, v in ((a, b), (b, c), (c, a)):         # walls on open edges
+            if count[frozenset((u, v))] == 1:
+                faces.append((u, v, v + n))
+                faces.append((u, v + n, u + n))
     return verts, np.asarray(faces, np.int64)
 
 

@@ -14,7 +14,10 @@ from collections.abc import Callable
 
 from ..parameters import BellowsParams
 from ..core.geometry import FoldPattern
-from . import yoshimura, miura, waterbomb, kresling, resch
+from . import (
+    yoshimura, miura, waterbomb, kresling, resch, accordion,
+    accordion_corners,
+)
 
 Generator = Callable[[BellowsParams], FoldPattern]
 
@@ -25,6 +28,8 @@ REGISTRY: dict[str, Generator] = {
     "waterbomb": waterbomb.generate,
     "kresling": kresling.generate,
     "resch": resch.generate,
+    "accordion": accordion.generate,
+    "accordion_corners": accordion_corners.generate,
 }
 
 
@@ -44,4 +49,5 @@ def generate(name: str, params: BellowsParams) -> FoldPattern:
 
 
 __all__ = ["REGISTRY", "Generator", "get_generator", "generate",
-           "yoshimura", "miura", "waterbomb", "kresling", "resch"]
+           "yoshimura", "miura", "waterbomb", "kresling", "resch",
+           "accordion", "accordion_corners"]

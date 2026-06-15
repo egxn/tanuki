@@ -25,6 +25,7 @@ of this file) that **tessellates** across the print bed via `generate_tessellati
 | Waterbomb | Axial / radial | No | Cell + tessellation |
 | Kresling | Axial + torsion | Yes | Cell + tessellation |
 | Resch | Complex / bistable | No | Cell + tessellation |
+| Accordion | Axial (trapezoidal) | No | Cell + tessellation |
 
 ---
 
@@ -95,7 +96,7 @@ the STL is baked in **Blender** from the DSL. From `src/`:
 from tanuki.mori.bellows_diecut import BellowsParams, generate_diecut, PATTERNS
 
 params = BellowsParams(cell_scale=0.25)   # mm per template unit → tile size
-for name in PATTERNS:    # ("yoshimura","miura","waterbomb","kresling","resch")
+for name in PATTERNS:    # ("yoshimura","miura","waterbomb","kresling","resch","accordion")
     result = generate_diecut(name, params, output_dir="output", bake=True)
 
 result["pattern"]   # FoldPattern — one unit cell, mountain/valley classified
@@ -247,19 +248,129 @@ solver using the bundled `bpy`.
 
 ---
 
-## Future Work
+## Roller system
 
-### Roller system
+An alternative to the flat diecut plates: a pair of complementary **rollers** that
+continuously stamp the fold pattern as the fabric is fed between them — better suited for
+straight (non-conic) bellows and higher-volume runs where pressing individual flat pieces is
+too slow.
 
-An alternative fabrication tool using a set of 3D printed rollers instead of flat diecut plates. The fabric is fed through two complementary rollers that continuously stamp the fold pattern in a single pass.
+Each roller is the tessellated foldcore relief **wrapped around a cylinder**. The
+circumference carries an integer number of tiles (`around`), so the pattern meets itself
+seamlessly at the wrap — the minimum is one bellows perimeter (`grid[0]`, see *Tile
+Specifications*). The **male** roller carries the relief outward; the **female** is its
+negative, so the two mesh like gears with the fabric in between. The solid is built by
+bending the already-watertight flat foldcore die into a cylinder (`x` → wrap angle,
+relief `z` → radius), so the result is closed by construction for every tiling rule.
 
-Planned as a three-section roller to produce the W/M cross-section profile characteristic of classic camera bellows:
+```python
+from tanuki.mori.bellows_diecut import generate_rollers
 
+# male + female rollers; minimum tiles around for a seamless wrap
+generate_rollers("kresling", "output", bake=True)   # → stl/kresling_roller_{male,female}.stl
 ```
-← center  |  forward  |  center →
+
+`generate_rollers(name, output_dir, bake, around=None, length=None)` writes the roller OBJs,
+a self-contained `<name>_roller_diecut.py` DSL bake script (each side imported via
+`import_obj`), and — with `bake=True` and Blender on `PATH` — the STL pair.
+
+### Parametric Geometry Nodes roller
+
+For a **live, editable** roller in Blender there is a Geometry-Nodes version. The fold relief
+(one minimal seamless tile block) is baked into a mesh; everything geometric — **arraying**
+the block, **wrapping** it onto a cylinder (`θ = x·2π/circumference`, `r = radius + z·depth`),
+and **solidifying** it (extrude inward by the wall) — is done in a `BellowsRoller` node group
+whose inputs stay adjustable on the modifier:
+
+| Input | Effect |
+|---|---|
+| Diameter (mm) | cylinder size the relief wraps onto |
+| Tiles around / Tiles along | how many tile blocks wrap the circumference / run along the axis |
+| Relief depth | relief height multiplier; **negative = female** (the meshing negative) |
+| Core wall (mm) | bored-core wall thickness (extrude depth) |
+
+```python
+from tanuki.mori.bellows_diecut import generate_rollers_gn
+
+generate_rollers_gn("yoshimura", "output")     # → output/yoshimura_roller_gn.py
+# then in Blender:  blender -b -P output/yoshimura_roller_gn.py   (or open + Run Script)
 ```
 
-The roller approach is better suited for straight (non-conic) bellows and higher volume runs where stamping individual flat pieces is too slow. Each pattern would require its own roller geometry, derived from the same parametric core as the flat diecuts.
+Running the script creates `<name>_roller_male` and `<name>_roller_female` objects, each with
+the editable `BellowsRoller` modifier. This version is an interactive **preview / design tool**:
+arraying a single block can leave minor non-manifold seams between tiles, so for a watertight,
+print-ready STL use the baked `generate_rollers` above (it tessellates the whole mesh at once).
+
+
+## Configuration
+
+Generation is driven by a small JSON config. Only a few knobs per pattern are exposed —
+everything else (tiling rule, fabric gap, backing, roller wall) is computed automatically:
+
+| Key | Meaning |
+|---|---|
+| `tile` | tile size `[X, Y]` in mm |
+| `fold_height` | the mountain height (fold relief depth) in mm |
+| `repeats` | how many tiles repeat **along the cylinder height** (axial) |
+| `around` | how many tiles repeat **around the circumference** (horizontal); omit it to keep the pattern's automatic bellows-perimeter count |
+
+```json
+{
+  "patterns": {
+    "yoshimura": { "tile": [16, 16], "fold_height": 7.2, "repeats": 10, "around": 10 },
+    "miura":     { "tile": [16, 17], "fold_height": 7.7, "repeats": 10, "around": 8 }
+  }
+}
+```
+
+```python
+from tanuki.mori.bellows_diecut import (
+    write_config_template, configure, generate_tessellation, generate_rollers, generate_all,
+)
+
+write_config_template("bellows_config.json")          # start from the defaults, then edit it
+
+# either pass it to one generator …
+generate_rollers("yoshimura", "output", config="bellows_config.json")
+# … or apply it once for the whole session …
+configure("bellows_config.json")
+generate_tessellation("yoshimura", "output")
+# … or generate dies + rollers + GN scripts for every pattern at once:
+generate_all("output", config="bellows_config.json", bake=False)
+```
+
+Every generator (`generate_tessellation`, `generate_rollers`, `generate_diecut`,
+`generate_rollers_gn`, `generate_all`) accepts `config=` (a path **or** a dict). A partial config
+is merged over the defaults, so you only list the patterns/keys you want to change.
+
+
+## Web UI
+
+A dependency-free local site to adjust the knobs, preview the tile, and generate the output:
+
+```bash
+python -m tanuki.mori.bellows_diecut.web          # → http://127.0.0.1:8000/
+#   --host  --port  --output <dir>   (defaults: 127.0.0.1, 8000, ./bellows_output)
+#   --no-reload   disable the auto-restart-on-edit watcher
+```
+
+The server **auto-reloads** on any edit to the package (it watches the source and restarts),
+and responses are sent `Cache-Control: no-store`, so changes always take effect on a refresh —
+no manual restart needed.
+
+Pick a pattern and set **tile X/Y**, **fold height**, **tiles around (horizontal)** and
+**repeats (height)** — tiles around defaults to the pattern's automatic count;
+the preview updates live (a 3D foldcore view via three.js, or — offline — a 2D crease-pattern
+fallback showing mountains solid and valleys dashed). **Generate rollers + output** writes the
+tessellated dies, the male/female rollers and the parametric Geometry-Nodes script for that
+pattern into the output directory, and lists the files written.
+
+Tick **Bake STL with Blender** to also bake the print-ready STLs. The generation runs as a
+background job (so the page stays responsive) and the server invokes Blender **headless**
+(`blender --background`); the status polls until done and the produced `.stl` files are listed
+in bold. This needs Blender on `PATH` — without it the job reports the error and the OBJ / SVG /
+JSON / DSL / GN files are still written. Built on the Python standard library only (the 3D
+preview pulls three.js from a CDN; everything else works offline).
 
 
 ## Fold Patterns — Unit Cells
@@ -270,7 +381,7 @@ Each pattern is defined by two types of edges developed flat:
 - **Valley** (dashed line) — fold guides, cut as shallow channels in the male plate
 
 ### Yoshimura
-V shape with downward peak (top), diamond below. Lateral columns and central diamond axis are valley. All diagonal arms are mountain.
+One **diamond** (square rhombus) of a regular diamond grid. The four diagonal arms are mountains; two families of horizontal valley axes run through it — one along the diamond's **middle** (its horizontal diagonal, left↔right) and one through the **tip/tail junction** between rows. Folded, the diamonds pop in and out alternately (an egg-crate lattice).
 
 ### Miura
 Two stacked V shapes forming a diapason/Y structure. Top lateral columns (E1, F1), central V arms (J, K), and lower central axis (G3) are mountain. Inner horizontal rows, mid columns, and lower diagonals are valley.
@@ -283,6 +394,9 @@ Two horizontally stacked parallelograms, mirrored vertically. All frame edges ar
 
 ### Resch
 Four small squares forming one large square, plus one additional small square attached to the right side. All frame edges are mountain. The X crossing the four inner squares is valley.
+
+### Accordion
+A trapezoidal corrugation of **horizontal rings** — each tile is one horizontal trapezoid (a flat crest flanked by two slants down to the tile edges). Tiled along Y the crests alternate up/down into an accordion wave, so one tile = one trapezoid ring and the **`repeats` (axial) count sets the number of rings**; `tiles around` just sets the diameter (the relief is constant around the circumference). The relief is built directly (flat crests, straight slants, troughs at `z = 0` on every ring edge), so the dies and rollers stay clean and the cylinder closes seamlessly into smooth, round bellows rings.
 
 ---
 
@@ -316,7 +430,7 @@ Each unit cell tiles into a repeating surface. The same diecut logic applies at 
 
 ### Yoshimura tessellated
 
-Columns of interlocking diamonds. Mountain arms form a continuous zigzag; valley columns run vertically between them.
+A regular **square grid of diamonds** (no brick/interlock offset). Each diamond folds along its horizontal middle axis and tip/tail axis; alternate diamonds pop in and out, giving an egg-crate diamond relief.
 
 ### Miura tessellated
 
@@ -391,11 +505,13 @@ Each pattern repeats with its own rule (`TILE_SPECS[...]["tiling"]`):
 
 | Pattern | Tiling | How it repeats |
 |---|---|---|
-| Resch, Waterbomb | `square` | plain grid (shift one tile each way) |
-| Miura, Yoshimura | `brick` | alternate rows shift ½ tile — a row's tile **corners** land on the next row's tile **centres** (running bond) |
-| Kresling | V-interlock | the V notch of one tile receives the next tile's tip; the effective width shrinks (`pitch_x = 260/300`) |
+| Resch, Waterbomb, Accordion | `square` | plain grid (shift one tile each way) |
+| Yoshimura | `square` | regular grid of diamonds — each diamond folds along its horizontal middle and tip/tail axes, alternate diamonds pop in/out |
+| Miura | `brick` | alternate rows shift ½ tile — a row's tile **corners** land on the next row's tile **centres** (running bond) |
+| Kresling | `square` + V-interlock | the V notch receives the next tile's tip (`pitch_x = 260/300`), shrinking the effective width |
 
-`brick` rows widen the field by ½ tile; the Kresling interlock narrows it — both still fit the bed.
+The Miura brick widens the field by ½ tile; the Kresling V-interlock
+shrinks it (cells share edges) — all still fit the bed.
 
 ---
 
@@ -438,3 +554,12 @@ Z = (fold_pitch / 2) - fabric_thickness - press_tolerance
 | Waterbomb | 3.5× | 50 | ~15 |
 | Kresling | 3.0× | 50 | ~12 |
 | Resch | 2.5× | 50 | ~20 |
+
+## Patterns Progress
+
+* [x] Accordion — trapezoidal corrugation
+* [x] Yoshimura — diamond grid
+* [x] Kresling — stacked parallelograms + inner V
+* [ ] Miura — V-shaped chevrons **Wrong repetition direction**
+* [ ] Waterbomb — mirrored trapezoids **Wrong tile pattern**
+* [ ] Resch — 2×2 squares + attached square + X **Wrong tile pattern**
