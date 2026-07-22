@@ -39,15 +39,6 @@ const sidebars = {
       label: 'IR Layer',
       items: ['ir/overview'],
     },
-    {
-      type: 'category',
-      label: 'Mori Ecosystem',
-      items: [
-        'mori/overview',
-        'mori/halo-maps',
-        'mori/print-labo',
-      ],
-    },
   ],
 };
 

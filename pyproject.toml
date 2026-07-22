@@ -9,7 +9,6 @@ authors = [
   { name="Fabian Velosa", email="afvelosas@gmail.com" },
 ]
 description = "A declarative DSL for procedural geometry that compiles to Blender Geometry Nodes and other backends."
-readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -21,8 +20,8 @@ classifiers = [
 Homepage = "https://github.com/egxn/tanuki"
 Issues = "https://github.com/egxn/tanuki/issues"
 
-[project.optional-dependencies]
-dev = ["pytest>=7.0"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/tanuki"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

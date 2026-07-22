@@ -57,11 +57,6 @@ const config = {
             label: 'Backends',
             position: 'left',
           },
-          {
-            to: '/docs/mori/overview',
-            label: 'Mori',
-            position: 'left',
-          },
         ],
       },
       footer: {
@@ -87,7 +82,6 @@ const config = {
           {
             title: 'More',
             items: [
-              { label: 'Mori Ecosystem', to: '/docs/mori/overview' },
               { label: 'IR Reference', to: '/docs/ir/overview' },
             ],
           },

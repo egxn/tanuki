@@ -1,7 +1,3 @@
----
-applyTo: "src/tanuki/dsl/**,src/tanuki/mori/**"
----
-
 # DSL Layer — Patterns and Conventions
 
 ## Import convention

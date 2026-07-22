@@ -68,7 +68,7 @@ Located at `src/tanuki/backends/blender/compiler.py`.
 - `compile_to_script(graph, output_path) -> Path` — writes to disk
 - Node type mapping lives in `node_map.py` (auto-generated, 223 GN nodes)
 
-## Export helpers (preferred for mori scripts)
+## Export helpers (preferred for scripts)
 
 For multi-part models, use the high-level export helpers directly instead of `render()`:
 
@@ -86,11 +86,10 @@ These are the same helpers called internally by `render()` for batch blender exp
 
 ## Generator scripts (repo root `*_gen.py`)
 
-Top-level `*_gen.py` files are thin CLI wrappers over their corresponding `mori` module:
+Top-level `*_gen.py` files are thin CLI wrappers over their corresponding module:
 
 ```python
 # lens_machine_gen.py — typical pattern
-from tanuki.mori.print_labo.lens_machine import ALL_PARTS
 from tanuki.dsl.export import combined_export
 
 path = combined_export(ALL_PARTS, "lens_machine_output/lens_machine_blender.py")

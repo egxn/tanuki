@@ -47,10 +47,6 @@ src/tanuki/
 │       ├── runtime.py   # IR → direct bpy execution inside Blender
 │       └── node_map.py  # Auto-generated registry of 223 Blender GN nodes
 ├── codegen/        # Code generation utilities
-├── mori/           # Real-world model library
-│   ├── print_labo/ # Camera/photography equipment models
-│   ├── halo_maps/  # Map generation projects
-│   └── paper/      # Paper-related models
 └── tests/          # pytest test suite (unit + integration)
 ```
 
@@ -91,8 +87,6 @@ individual_export([graph_a, graph_b], "output_dir/")
 
 ## File naming conventions
 
-- `*_gen.py` — generator scripts at repo root (thin wrappers that call mori models)
-- `src/tanuki/mori/print_labo/*.py` — actual model definitions
 - Generated output files (`*_blender.py`, `*.scad`) go to `lens_machine_output/` or named dirs
 
 ## Key invariants
@@ -115,5 +109,4 @@ pytest src/tanuki/tests/
 | File | Covers |
 |------|--------|
 | `dsl.instructions.md` | DSL patterns, all modules, pipe composition |
-| `mori.instructions.md` | print_labo model structure and conventions |
 | `backends.instructions.md` | Backend compilation and render() API |

@@ -9,9 +9,5 @@ __pycache__/
 .pytest_cache/
 **/.pytest_cache/
 
-
-src/tanuki/mori/halo_maps/docs
-
-src/tanuki/mori/stencil_lab/docs/refs
-
 exports/
+.github
