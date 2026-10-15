@@ -47,6 +47,7 @@ _PRIMITIVE_BPY_TYPE: dict[PrimitiveType, str] = {
     PrimitiveType.GRID: "GeometryNodeMeshGrid",
     PrimitiveType.ICO_SPHERE: "GeometryNodeMeshIcoSphere",
     PrimitiveType.LINE: "GeometryNodeMeshLine",
+    PrimitiveType.MESH_POLYGON: "GeometryNodeObjectInfo",
     PrimitiveType.CURVE_ARC: "GeometryNodeCurveArc",
     PrimitiveType.CURVE_CIRCLE: "GeometryNodeCurvePrimitiveCircle",
     PrimitiveType.CURVE_LINE: "GeometryNodeCurvePrimitiveLine",
@@ -61,6 +62,9 @@ _PRIMITIVE_BPY_TYPE: dict[PrimitiveType, str] = {
     PrimitiveType.IMPORT_PLY: "GeometryNodeImportPLY",
     PrimitiveType.IMPORT_CSV: "GeometryNodeImportCSV",
     PrimitiveType.IMPORT_VDB: "GeometryNodeImportVDB",
+    # Blender has no Geometry Nodes SVG importer.  IMPORT_SVG is materialized
+    # as a mesh object during generated-script setup and read with Object Info.
+    PrimitiveType.IMPORT_SVG: "GeometryNodeObjectInfo",
     PrimitiveType.COLLECTION_INFO: "GeometryNodeCollectionInfo",
     PrimitiveType.OBJECT_INFO: "GeometryNodeObjectInfo",
 }
@@ -82,6 +86,7 @@ _GEOMETRY_OUTPUT: dict[PrimitiveType, str] = {
     PrimitiveType.GRID: "Mesh",
     PrimitiveType.ICO_SPHERE: "Mesh",
     PrimitiveType.LINE: "Mesh",
+    PrimitiveType.MESH_POLYGON: "Geometry",
     PrimitiveType.CURVE_ARC: "Curve",
     PrimitiveType.CURVE_CIRCLE: "Curve",
     PrimitiveType.CURVE_LINE: "Curve",
@@ -96,6 +101,7 @@ _GEOMETRY_OUTPUT: dict[PrimitiveType, str] = {
     PrimitiveType.IMPORT_PLY: "Mesh",
     PrimitiveType.IMPORT_CSV: "Point Cloud",
     PrimitiveType.IMPORT_VDB: "Volume",
+    PrimitiveType.IMPORT_SVG: "Geometry",
     PrimitiveType.COLLECTION_INFO: "Instances",
     PrimitiveType.OBJECT_INFO: "Geometry",
 }
@@ -315,6 +321,7 @@ _GEOM_OP_OUTPUT: dict[str, str] = {
 
 # Scalar property key → Blender input socket name
 _GEOM_OP_SCALAR: dict[str, str] = {
+    "segments": "Segments",
     "offset_scale": "Offset Scale",
     "level": "Level",
     "distance": "Distance",
@@ -651,6 +658,89 @@ def _compile_primitive(node: IRPrimitive, em: _Emitter) -> str:
     ):
         deferred_lines.append(f'{var}.inputs["Path"].default_value = {props["path"]!r}')
 
+    elif node.primitive_type == PrimitiveType.IMPORT_SVG:
+        svg_path = props["path"]
+        # Derive a stable helper name from the exact path so recompiling the
+        # same SVG replaces only its own previous helper object.
+        import hashlib
+        svg_name = f"tanuki_svg_{hashlib.sha1(svg_path.encode()).hexdigest()[:8]}"
+        # Import Curve SVG is an operator rather than a Geometry Nodes node.
+        # Convert and join all imported SVG curve objects before Object Info
+        # exposes the resulting mesh to the node graph.
+        em.line('bpy.ops.object.select_all(action="DESELECT")')
+        em.line(f'_svg_old = bpy.data.objects.get({svg_name!r})')
+        em.line('if _svg_old is not None: bpy.data.objects.remove(_svg_old, do_unlink=True)')
+        em.line(f'bpy.ops.import_curve.svg(filepath={svg_path!r})')
+        em.line('_svg_objects = list(bpy.context.selected_objects)')
+        em.line('if not _svg_objects: raise RuntimeError("SVG import produced no objects")')
+        em.line('for _svg_object in _svg_objects:')
+        em.line('    bpy.ops.object.select_all(action="DESELECT")')
+        em.line('    _svg_object.select_set(True)')
+        em.line('    bpy.context.view_layer.objects.active = _svg_object')
+        em.line('    bpy.ops.object.convert(target="MESH")')
+        em.line('bpy.ops.object.select_all(action="DESELECT")')
+        em.line('for _svg_object in _svg_objects: _svg_object.select_set(True)')
+        em.line('bpy.context.view_layer.objects.active = _svg_objects[0]')
+        em.line('bpy.ops.object.join()')
+        em.line(f'_svg_objects[0].name = {svg_name!r}')
+        em.line('_svg_objects[0].hide_viewport = True')
+        em.line('_svg_objects[0].hide_render = True')
+        if props.get("cleanup"):
+            em.line(f'os.remove({svg_path!r}) if os.path.exists({svg_path!r}) else None')
+        deferred_lines.append(f'{var}.inputs["Object"].default_value = bpy.data.objects.get({svg_name!r})')
+
+    elif node.primitive_type == PrimitiveType.MESH_POLYGON:
+        polygons = props.get("polygons")
+        if polygons is None:
+            polygons = (props["points"],)
+        polygons = tuple(tuple(tuple(point) for point in polygon) for polygon in polygons)
+        solid_height = props.get("solid_height")
+        if solid_height is not None:
+            points = []
+            faces = []
+            for polygon in polygons:
+                offset = len(points)
+                bottom = [tuple(point) for point in polygon]
+                top = [(point[0], point[1], point[2] + solid_height) for point in polygon]
+                points.extend(bottom + top)
+                count = len(polygon)
+                faces.append(list(reversed(range(offset, offset + count))))
+                faces.append(list(range(offset + count, offset + 2 * count)))
+                for index in range(count):
+                    next_index = (index + 1) % count
+                    faces.append([
+                        offset + index,
+                        offset + next_index,
+                        offset + count + next_index,
+                        offset + count + index,
+                    ])
+        else:
+            points = [point for polygon in polygons for point in polygon]
+            faces = []
+            vertex_offset = 0
+            for polygon in polygons:
+                faces.append(list(range(vertex_offset, vertex_offset + len(polygon))))
+                vertex_offset += len(polygon)
+        import hashlib
+        # The geometry hash alone is not enough: two independent DSL nodes
+        # can intentionally have identical geometry.  Include the IR node id
+        # so each invocation owns its Blender helper object.
+        mesh_key = repr((node.id, polygons, solid_height)).encode()
+        mesh_name = f"tanuki_polygon_{hashlib.sha1(mesh_key).hexdigest()[:12]}"
+        em.line('for _polygon_existing in bpy.data.objects:')
+        em.line('    if _polygon_existing.name.startswith("tanuki_polygon_"): _polygon_existing.hide_set(True)')
+        em.line(f'_polygon_old = bpy.data.objects.get({mesh_name!r})')
+        em.line('if _polygon_old is not None: bpy.data.objects.remove(_polygon_old, do_unlink=True)')
+        em.line(f'_polygon_mesh = bpy.data.meshes.new({mesh_name!r})')
+        em.line(f'_polygon_mesh.from_pydata({points!r}, [], {faces!r})')
+        em.line(f'_polygon_mesh.update()')
+        em.line(f'_polygon_object = bpy.data.objects.new({mesh_name!r}, _polygon_mesh)')
+        em.line(f'bpy.context.scene.collection.objects.link(_polygon_object)')
+        em.line(f'_polygon_object.hide_viewport = True')
+        em.line(f'_polygon_object.hide_render = True')
+        em.line(f'_polygon_object.hide_set(True)')
+        deferred_lines.append(f'{var}.inputs["Object"].default_value = bpy.data.objects.get({mesh_name!r})')
+
     elif node.primitive_type == PrimitiveType.IMPORT_CSV:
         deferred_lines.append(f'{var}.inputs["Path"].default_value = {props["path"]!r}')
         deferred_lines.append(f'{var}.inputs["Delimiter"].default_value = {props["delimiter"]!r}')
@@ -960,6 +1050,8 @@ def _compile_geometry_op(node: IRGeometryOp, em: _Emitter) -> str:
         em.line(f'{var}.input_type = "{props["input_type"]}"')
     if "target_element" in props:
         em.line(f'{var}.target_element = "{props["target_element"]}"')
+    if "affect" in props:
+        em.line(f'{var}.affect = "{props["affect"]}"')
 
     # Boolean inputs (set as default_value)
     for key, input_name in _GEOM_OP_BOOL.items():
@@ -1232,6 +1324,7 @@ def compile_to_source(graph: IRGraph) -> str:
 
     # Preamble
     em.line("import bpy")
+    em.line("import os")
     em.blank()
     em.blank()
 

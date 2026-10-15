@@ -11,6 +11,52 @@ from __future__ import annotations
 from ..ir.nodes import IRPrimitive, PrimitiveType
 
 
+def mesh_polygon(points: tuple[tuple[float, float, float], ...], label: str = "") -> IRPrimitive:
+    """Create one filled planar polygon from ordered vertices."""
+    if len(points) < 3:
+        raise ValueError("mesh_polygon requires at least three points")
+    return IRPrimitive(
+        primitive_type=PrimitiveType.MESH_POLYGON,
+        properties={"points": points},
+        label=label or "mesh_polygon",
+    )
+
+
+def mesh_polygon_solid(
+    points: tuple[tuple[float, float, float], ...],
+    height: float,
+    label: str = "",
+) -> IRPrimitive:
+    """Create a planar polygon as an explicit closed solid."""
+    if len(points) < 3:
+        raise ValueError("mesh_polygon_solid requires at least three points")
+    if height <= 0:
+        raise ValueError("mesh_polygon_solid height must be greater than zero")
+    return IRPrimitive(
+        primitive_type=PrimitiveType.MESH_POLYGON,
+        properties={"points": points, "solid_height": height},
+        label=label or "mesh_polygon_solid",
+    )
+
+
+def mesh_polygons(
+    polygons: tuple[tuple[tuple[float, float, float], ...], ...],
+    label: str = "",
+) -> IRPrimitive:
+    """Create one mesh object containing several planar polygon faces.
+
+    Unlike a boolean union, this preserves the exact profile pieces and avoids
+    coplanar boolean artifacts at the track/semicircle joins.
+    """
+    if not polygons or any(len(polygon) < 3 for polygon in polygons):
+        raise ValueError("mesh_polygons requires non-empty polygons with at least three points")
+    return IRPrimitive(
+        primitive_type=PrimitiveType.MESH_POLYGON,
+        properties={"polygons": polygons},
+        label=label or "mesh_polygons",
+    )
+
+
 def cube(x: float, y: float, z: float, label: str = "") -> IRPrimitive:
     """Create a cube primitive with size (*x*, *y*, *z*)."""
     return IRPrimitive(

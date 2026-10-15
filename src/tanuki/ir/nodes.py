@@ -35,6 +35,7 @@ class PrimitiveType(Enum):
     GRID = auto()
     ICO_SPHERE = auto()
     LINE = auto()
+    MESH_POLYGON = auto()
     # Curve primitives
     CURVE_ARC = auto()
     CURVE_CIRCLE = auto()
@@ -52,6 +53,7 @@ class PrimitiveType(Enum):
     IMPORT_PLY = auto()
     IMPORT_CSV = auto()
     IMPORT_VDB = auto()
+    IMPORT_SVG = auto()
     # Reference sources
     COLLECTION_INFO = auto()
     OBJECT_INFO = auto()

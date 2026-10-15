@@ -89,6 +89,22 @@ def merge_by_distance(distance: float = 0.001) -> Op:
     return _apply
 
 
+def bevel(offset: float = 0.1, segments: int = 2, affect: str = "EDGES") -> Op:
+    """Bevel mesh edges.
+
+    ``offset`` is the bevel width, ``segments`` controls smoothness, and
+    ``affect`` may be ``EDGES`` or ``VERTICES``.
+    """
+    def _apply(node: IRNode) -> IRGeometryOp:
+        return IRGeometryOp(
+            op_type="GeometryNodeBevel",
+            child=node,
+            properties={"offset": offset, "segments": segments, "affect": affect},
+            label=f"{node.label} bevel" if node.label else "bevel",
+        )
+    return _apply
+
+
 # ---------------------------------------------------------------------------
 # New mesh operations
 # ---------------------------------------------------------------------------

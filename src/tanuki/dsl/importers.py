@@ -50,6 +50,15 @@ def import_vdb(path: str = "") -> IRPrimitive:
     )
 
 
+def import_svg(path: str = "", *, cleanup: bool = False) -> IRPrimitive:
+    """Import an SVG as Blender curve geometry for later mesh conversion."""
+    return IRPrimitive(
+        primitive_type=PrimitiveType.IMPORT_SVG,
+        properties={"path": path, "cleanup": cleanup},
+        label="import_svg",
+    )
+
+
 def collection_info(
     collection: str = "",
     separate_children: bool = False,

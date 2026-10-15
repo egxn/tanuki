@@ -65,7 +65,7 @@ def combined_export(
         body = _extract_setup_body(src, func_name)
         compiled.append((graph.name, body))
 
-    sections = ["import bpy", "", ""]
+    sections = ["import bpy", "import os", "", ""]
     for _name, body in compiled:
         sections.append(body)
         sections.append("")

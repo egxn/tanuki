@@ -1,6 +1,6 @@
 """Tanuki DSL — Declarative API for procedural geometry."""
 
-from .primitives import cube, sphere, cylinder, cone, point, circle, grid, ico_sphere, line
+from .primitives import cube, sphere, cylinder, cone, point, circle, grid, ico_sphere, line, mesh_polygon, mesh_polygon_solid, mesh_polygons
 from .operations import union, difference, intersect, join
 from .transforms import (
     translate, rotate, scale_by, place,
@@ -16,7 +16,7 @@ from .instance_ops import (
 from .mesh_ops import (
     extrude, subdivide, subdivide_surface, set_shade_smooth, merge_by_distance,
     dual_mesh, mesh_to_curve, mesh_to_points, mesh_to_volume,
-    volume_to_mesh, set_mesh_normal, curve_to_mesh,
+    volume_to_mesh, set_mesh_normal, curve_to_mesh, bevel,
 )
 from .curves import curve_arc, curve_circle, curve_line, curve_quadrilateral, curve_star, curve_spiral, bezier_segment, quadratic_bezier
 from .curve_ops import (
@@ -44,7 +44,7 @@ from .other_ops import (
     distribute_points_in_grid, grid_to_mesh, points_to_sdf_grid,
 )
 from .attribute_ops import store_named_attribute, remove_named_attribute
-from .importers import import_obj, import_stl, import_ply, import_csv, import_vdb, collection_info, object_info
+from .importers import import_obj, import_stl, import_ply, import_csv, import_vdb, import_svg, collection_info, object_info
 from .field_nodes import (
     position, normal, index, id_field,
     edge_vertices, edge_angle,
