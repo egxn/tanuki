@@ -105,12 +105,19 @@ graph = ctx.graph  # IRGraph ready for compilation
 ```python
 from tanuki.backends import render
 
-# Generate a standalone .py script
+# Generate a standalone .py script (Blender Geometry Nodes)
 render(graph, target="blender", mode="script", output_path="output.py")
 
 # Execute directly inside Blender (requires bpy)
 render(graph, target="blender", mode="direct")
+
+# Other targets
+render(graph, target="opencascade", output_path="output.js")   # opencascade.js ES module
+render(graph, target="openscad", output_path="output.scad")    # OpenSCAD
+render(graph, target="jscad", output_path="output.jscad")      # JSCAD CommonJS module
 ```
+
+See `src/tanuki/backends/README.md` for what each backend supports.
 
 ---
 
@@ -161,9 +168,6 @@ PYTHONPATH=src python -m tanuki.codegen.generate_nodes
 ```bash
 # Unit tests (no Blender required)
 PYTHONPATH=src pytest src/tanuki/tests/ -v
-
-# Integration tests (requires Blender)
-PYTHONPATH=src pytest src/tanuki/tests/test_integration.py -v
 ```
 
 ---
@@ -172,37 +176,47 @@ PYTHONPATH=src pytest src/tanuki/tests/test_integration.py -v
 
 ```
 src/tanuki/
-├── ir/                  # Immutable intermediate representation
-│   ├── nodes.py         # Frozen dataclass IR node types
-│   └── graph.py         # IRGraph container + pure operations
-├── dsl/                 # Declarative user API
-│   ├── primitives.py    # cube, sphere, cylinder, cone, point
-│   ├── operations.py    # union, difference, intersect, join
-│   ├── transforms.py    # transform, set_position
-│   ├── instancing.py    # clones
-│   └── context.py       # model() context manager, output()
-├── codegen/             # Auto-generation from node metadata
+├── ir/                   # Immutable intermediate representation
+│   ├── nodes.py          # Frozen dataclass IR node types
+│   └── graph.py          # IRGraph container + pure operations
+├── dsl/                  # Declarative user API
+│   ├── primitives.py     # cube, sphere, cylinder, cone, point, circle, grid, ...
+│   ├── operations.py     # union, difference, intersect, join
+│   ├── transforms.py     # transform, set_position, translate, rotate, scale_by
+│   ├── instancing.py     # clones
+│   ├── instance_ops.py   # realize_instances, split_to_instances, ...
+│   ├── mesh_ops.py        # extrude, subdivide, bevel, dual_mesh, ...
+│   ├── curves.py          # curve_arc, curve_circle, bezier_segment, ...
+│   ├── curve_ops.py       # fillet_curve, resample_curve, trim_curve, ...
+│   ├── field_nodes.py     # position, normal, index, edge_angle, ...
+│   ├── material_ops.py    # set_material, replace_material
+│   ├── volume_ops.py      # volume_cube, points_to_volume
+│   ├── attribute_ops.py   # store_named_attribute, remove_named_attribute
+│   ├── importers.py       # import_obj/stl/ply/csv/vdb/svg, collection_info
+│   ├── other_ops.py       # convex_hull, bounding_box, raycast, switch, ...
+│   ├── export.py          # graph export helpers
+│   ├── context.py         # model() context manager, output()
+│   └── custom/            # non-generated helper ops (e.g. mesh_analysis)
+├── codegen/              # Auto-generation from node metadata
 │   └── generate_nodes.py
 ├── backends/
-│   └── blender/
-│       ├── compiler.py  # IR → standalone .py script
-│       ├── runtime.py   # IR → direct bpy execution
-│       └── node_map.py  # Auto-generated node registry (223 nodes)
-├── models/              # Migrated models from deprecated/lab/
-│   ├── belt_holder.py
-│   ├── tray.py
-│   ├── claw.py
-│   ├── trap_light.py
-│   ├── minolta_tap.py
-│   ├── mogura_exposimeter.py
-│   ├── film_spooler.py
-│   └── neganuki_scanner.py
+│   ├── README.md         # per-backend support matrix
+│   ├── blender/
+│   │   ├── compiler.py   # IR → standalone .py script (Geometry Nodes)
+│   │   ├── runtime.py    # IR → direct bpy execution
+│   │   └── node_map.py   # Auto-generated node registry (223 nodes)
+│   ├── opencascade/
+│   │   └── compiler.py   # IR → .js ES module for opencascade.js (BREP)
+│   ├── openscad/
+│   │   └── compiler.py   # IR → .scad
+│   └── jscad/
+│       └── compiler.py   # IR → .jscad CommonJS module
 └── tests/
     ├── test_ir.py
     ├── test_dsl.py
     ├── test_compiler.py
-    ├── test_models.py
-    └── test_integration.py
+    ├── test_mesh_analysis_custom.py
+    └── test_new_nodes.py
 ```
 
 ---
@@ -212,26 +226,19 @@ src/tanuki/
 - **Functional first** — Pure functions, frozen dataclasses, immutable IR trees. Mutable state isolated to context manager and bpy runtime.
 - **Composition** — `output(difference(cube(...), [cylinder(...)]))` — geometry is composed through function calls.
 - **Lazy evaluation** — The DSL builds an IR graph, nothing executes until `render()` is called.
-- **Backend agnostic** — The IR is independent of Blender; future backends (ThreeJS, OpenSCAD) can compile the same IR.
+- **Backend agnostic** — The IR is independent of Blender; the same IR already compiles to OpenCascade.js, OpenSCAD, and JSCAD, not just Blender.
 
 ---
 
 ## Status
 
 Implemented:
-- Python DSL with primitives, booleans, transforms, instancing
+- Python DSL with primitives, booleans, transforms, instancing, curves, fields, and more
 - Immutable IR with frozen dataclasses
-- Blender Geometry Nodes compiler (script generation)
-- Blender runtime (direct bpy execution)
-- Auto-generated node registry (223 Blender geometry nodes)
-- 8 migrated models from `deprecated/lab/`
-- 103 tests (96 unit + 7 integration)
+- Four backends: Blender Geometry Nodes (script + direct bpy), OpenCascade.js, OpenSCAD, JSCAD
+- Auto-generated Blender node registry (223 geometry nodes, ~90% coverage)
 
-The initial focus is:
-
-1. Python DSL
-2. Blender Geometry Nodes backend
-3. Basic primitive and boolean operations
+See `src/tanuki/backends/README.md` for the full per-backend support matrix.
 
 ---
 
