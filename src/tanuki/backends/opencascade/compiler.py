@@ -106,7 +106,7 @@ def _compile_primitive(node: IRPrimitive, em: _Emitter) -> str:
     if node.primitive_type == PrimitiveType.CUBE:
         sx, sy, sz = props["size"]
         corner = _compile_point((-sx / 2, -sy / 2, -sz / 2), em)
-        em.line(f"const {var} = new oc.BRepPrimAPI_MakeBox_2({corner}, {sx}, {sy}, {sz}).Shape();")
+        em.line(f"const {var} = new oc.BRepPrimAPI_MakeBox_3({corner}, {sx}, {sy}, {sz}).Shape();")
 
     elif node.primitive_type == PrimitiveType.SPHERE:
         r = props["radius"]
@@ -121,7 +121,7 @@ def _compile_primitive(node: IRPrimitive, em: _Emitter) -> str:
             f"const {ax_var} = new oc.gp_Ax2_3("
             f"new oc.gp_Pnt_3(0, 0, {-h / 2}), new oc.gp_Dir_4(0, 0, 1));"
         )
-        em.line(f"const {var} = new oc.BRepPrimAPI_MakeCylinder_2({ax_var}, {r}, {h}).Shape();")
+        em.line(f"const {var} = new oc.BRepPrimAPI_MakeCylinder_3({ax_var}, {r}, {h}).Shape();")
 
     elif node.primitive_type == PrimitiveType.CONE:
         r1 = props.get("radius_bottom", 1.0)
@@ -132,7 +132,7 @@ def _compile_primitive(node: IRPrimitive, em: _Emitter) -> str:
             f"const {ax_var} = new oc.gp_Ax2_3("
             f"new oc.gp_Pnt_3(0, 0, {-h / 2}), new oc.gp_Dir_4(0, 0, 1));"
         )
-        em.line(f"const {var} = new oc.BRepPrimAPI_MakeCone_2({ax_var}, {r1}, {r2}, {h}).Shape();")
+        em.line(f"const {var} = new oc.BRepPrimAPI_MakeCone_4({ax_var}, {r1}, {r2}, {h}).Shape();")
 
     elif node.primitive_type == PrimitiveType.ICO_SPHERE:
         # OCCT has no ico sphere — use regular sphere
@@ -310,6 +310,41 @@ def _compile_primitive(node: IRPrimitive, em: _Emitter) -> str:
         em.line(f"const {wire_var} = {wire_var}_b.Wire();")
         em.line(f"const {var} = oc.TopoDS.prototype.constructor.Wire_1({wire_var});")
 
+    elif node.primitive_type == PrimitiveType.MESH_POLYGON:
+        # Same convention as the Blender backend: planar polygon(s) in their own
+        # coordinates; with ``solid_height`` they are extruded from z to z+height.
+        polygons = props.get("polygons")
+        if polygons is None:
+            polygons = (props["points"],)
+        solid_height = props.get("solid_height")
+        shapes: list[str] = []
+        for polygon in polygons:
+            poly_var = em.new_var("poly")
+            em.line(f"const {poly_var} = new oc.BRepBuilderAPI_MakePolygon_1();")
+            for x, y, z in polygon:
+                em.line(f"{poly_var}.Add_1(new oc.gp_Pnt_3({x}, {y}, {z}));")
+            em.line(f"{poly_var}.Close();")
+            face_var = em.new_var("face")
+            em.line(f"const {face_var} = new oc.BRepBuilderAPI_MakeFace_15({poly_var}.Wire(), true).Face();")
+            if solid_height is not None:
+                prism_var = em.new_var("prism")
+                em.line(
+                    f"const {prism_var} = new oc.BRepPrimAPI_MakePrism_1("
+                    f"{face_var}, new oc.gp_Vec_4(0, 0, {solid_height}), false, true).Shape();"
+                )
+                shapes.append(prism_var)
+            else:
+                shapes.append(face_var)
+        if len(shapes) == 1:
+            em.line(f"const {var} = {shapes[0]};")
+        else:
+            em.line(f"const {var}_b = new oc.BRep_Builder();")
+            em.line(f"const {var}_c = new oc.TopoDS_Compound();")
+            em.line(f"{var}_b.MakeCompound({var}_c);")
+            for s in shapes:
+                em.line(f"{var}_b.Add({var}_c, {s});")
+            em.line(f"const {var} = {var}_c;")
+
     else:
         em.comment(f"Unsupported primitive: {node.primitive_type.name}")
         em.line(f"const {var} = new oc.TopoDS_Shape();")
@@ -335,7 +370,7 @@ def _compile_boolean(node: IRBoolean, em: _Emitter) -> str:
         result = child_vars[0]
         for cv in child_vars[1:]:
             var = em.new_var("fuse")
-            em.line(f"const {var} = new oc.BRepAlgoAPI_Fuse_3({result}, {cv}).Shape();")
+            em.line(f"const {var} = new oc.BRepAlgoAPI_Fuse_3({result}, {cv}, new oc.Message_ProgressRange_1()).Shape();")
             result = var
         return result
 
@@ -343,7 +378,7 @@ def _compile_boolean(node: IRBoolean, em: _Emitter) -> str:
         result = child_vars[0]
         for cv in child_vars[1:]:
             var = em.new_var("cut")
-            em.line(f"const {var} = new oc.BRepAlgoAPI_Cut_3({result}, {cv}).Shape();")
+            em.line(f"const {var} = new oc.BRepAlgoAPI_Cut_3({result}, {cv}, new oc.Message_ProgressRange_1()).Shape();")
             result = var
         return result
 
@@ -351,7 +386,7 @@ def _compile_boolean(node: IRBoolean, em: _Emitter) -> str:
         result = child_vars[0]
         for cv in child_vars[1:]:
             var = em.new_var("common")
-            em.line(f"const {var} = new oc.BRepAlgoAPI_Common_3({result}, {cv}).Shape();")
+            em.line(f"const {var} = new oc.BRepAlgoAPI_Common_3({result}, {cv}, new oc.Message_ProgressRange_1()).Shape();")
             result = var
         return result
 

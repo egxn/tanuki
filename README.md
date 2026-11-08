@@ -4,9 +4,18 @@
 
 Write models as pure Python functions — Tanuki compiles them into standalone Blender scripts.
 
----
+> **Status:** progress and priorities are tracked in [PROGRESS.md](PROGRESS.md).
 
-## Quickstart
+## Getting Started
+
+### Install
+
+```bash
+cd src/tanuki
+pip install -e ".[dev]"
+```
+
+### Quickstart
 
 ```python
 from tanuki.dsl import *
@@ -26,34 +35,11 @@ render(graph, target="blender", mode="script", output_path="belt_holder.py")
 
 Running `blender --background --python belt_holder.py` creates the geometry in Blender.
 
----
+## Usage
 
-## Install
+### API Reference
 
-```bash
-cd src/tanuki
-pip install -e ".[dev]"
-```
-
----
-
-## Architecture
-
-```
-Python DSL → Immutable IR (frozen dataclasses) → Backend compiler → Blender script / direct bpy
-```
-
-Three layers, functional paradigm throughout:
-
-1. **DSL** — Pure functions (`cube`, `union`, `transform`, etc.) build an IR tree
-2. **IR** — Immutable geometry graph (`IRPrimitive`, `IRBoolean`, `IRTransform`, …)
-3. **Backend** — Compiles IR to executable Python/bpy scripts or runs directly in Blender
-
----
-
-## API Reference
-
-### Primitives
+#### Primitives
 
 ```python
 cube(x, y, z, label="", position=None, rotation=None, scale=None, translation=None)
@@ -63,7 +49,7 @@ cone(r_top, r_bottom, depth, label="", ...)
 point(x=0, y=0, z=0, label="")
 ```
 
-### Boolean operations
+#### Boolean operations
 
 ```python
 union([a, b, c])              # merge geometries
@@ -72,7 +58,7 @@ intersect([a, b])             # keep only intersection
 join([a, b])                  # join without boolean
 ```
 
-### Transforms
+#### Transforms
 
 ```python
 transform(node, translation=(x, y, z), rotation=(rx, ry, rz), scale=(sx, sy, sz))
@@ -81,14 +67,14 @@ set_position(node, position=(x, y, z))
 
 Rotation is in **degrees** — the compiler converts to radians automatically.
 
-### Instancing
+#### Instancing
 
 ```python
 positions = [(0, 0, 0), (10, 0, 0), (20, 0, 0)]
 clones(node, positions)    # instance node at each point
 ```
 
-### Context
+#### Context
 
 ```python
 with model("name") as ctx:
@@ -98,9 +84,7 @@ with model("name") as ctx:
 graph = ctx.graph  # IRGraph ready for compilation
 ```
 
----
-
-## Rendering
+### Rendering
 
 ```python
 from tanuki.backends import render
@@ -119,9 +103,7 @@ render(graph, target="jscad", output_path="output.jscad")      # JSCAD CommonJS 
 
 See `src/tanuki/backends/README.md` for what each backend supports.
 
----
-
-## Example: Claw with sprocket instancing
+### Example: Claw with sprocket instancing
 
 ```python
 from tanuki.dsl import *
@@ -145,9 +127,19 @@ def create_claw():
     return ctx.graph
 ```
 
----
+## Architecture
 
-## Auto-generated node metadata
+```
+Python DSL → Immutable IR (frozen dataclasses) → Backend compiler → Blender script / direct bpy
+```
+
+Three layers, functional paradigm throughout:
+
+1. **DSL** — Pure functions (`cube`, `union`, `transform`, etc.) build an IR tree
+2. **IR** — Immutable geometry graph (`IRPrimitive`, `IRBoolean`, `IRTransform`, …)
+3. **Backend** — Compiles IR to executable Python/bpy scripts or runs directly in Blender
+
+### Auto-generated node metadata
 
 The `codegen/generate_nodes.py` script reads Blender's 223 geometry node definitions from `docs/geometry_nodes_categories/*.json` and generates `backends/blender/node_map.py` with:
 
@@ -161,18 +153,7 @@ Regenerate with:
 PYTHONPATH=src python -m tanuki.codegen.generate_nodes
 ```
 
----
-
-## Tests
-
-```bash
-# Unit tests (no Blender required)
-PYTHONPATH=src pytest src/tanuki/tests/ -v
-```
-
----
-
-## Project structure
+## Project Structure
 
 ```
 src/tanuki/
@@ -219,18 +200,29 @@ src/tanuki/
     └── test_new_nodes.py
 ```
 
----
+## Testing
 
-## Design principles
+```bash
+# Unit tests (no Blender required)
+PYTHONPATH=src pytest src/tanuki/tests/ -v
+```
+
+## Design Principles
 
 - **Functional first** — Pure functions, frozen dataclasses, immutable IR trees. Mutable state isolated to context manager and bpy runtime.
 - **Composition** — `output(difference(cube(...), [cylinder(...)]))` — geometry is composed through function calls.
 - **Lazy evaluation** — The DSL builds an IR graph, nothing executes until `render()` is called.
 - **Backend agnostic** — The IR is independent of Blender; the same IR already compiles to OpenCascade.js, OpenSCAD, and JSCAD, not just Blender.
 
----
+## Documentation
 
-## Status
+- [Backend support matrix](src/tanuki/backends/README.md)
+- [Docs site (Docusaurus)](docs/)
+- [Agent guidance](AGENTS.md)
+
+## Status & Roadmap
+
+Progress tracking: see [PROGRESS.md](PROGRESS.md).
 
 Implemented:
 - Python DSL with primitives, booleans, transforms, instancing, curves, fields, and more
@@ -240,14 +232,10 @@ Implemented:
 
 See `src/tanuki/backends/README.md` for the full per-backend support matrix.
 
----
-
-# License
+## License
 
 MIT
 
----
-
-# Contributing
+## Contributing
 
 Contributions, ideas, and experiments are welcome.

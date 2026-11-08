@@ -77,6 +77,17 @@ The file exports a `setup_<name>(oc)` function that receives an initialised `oc`
 
 **Output extension:** `.js`
 
+**Targets opencascade.js `2.0.0-beta`** (constructor overload numbering differs from 1.x).
+To get STEP files, run the generated modules through `scripts/export_step.mjs`:
+
+```bash
+cd scripts && npm install
+node export_step.mjs <dir with *_gen.js> <out dir>                 # one .step per part
+node export_step.mjs <dir with *_gen.js> <out dir> --single all.step   # one compound
+```
+
+It also reports shapes that fail `BRepCheck_Analyzer`.
+
 ### Primitives ✅
 
 | Primitive | OCCT API |
@@ -92,6 +103,7 @@ The file exports a `setup_<name>(oc)` function that receives an initialised `oc`
 | `bezier_segment` | `Geom_BezierCurve` + `BRepBuilderAPI_MakeEdge` |
 | `quadratic_bezier` | `Geom_BezierCurve` (3 poles) |
 | `curve_star` | Polygonal wire built vertex-by-vertex |
+| `mesh_polygon` / `mesh_polygon_solid` / `mesh_polygons` | `BRepBuilderAPI_MakePolygon` → `MakeFace` (→ `BRepPrimAPI_MakePrism` along +Z when `solid_height` is set) |
 | `curve_spiral` | Polyline wire (approximation) |
 | `curve_quadrilateral` | 4-edge wire |
 | `point` | `BRepBuilderAPI_MakeVertex` |
